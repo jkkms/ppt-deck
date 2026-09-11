@@ -1,0 +1,191 @@
+---
+name: ppt-deck
+version: "1.2.0"
+description: AI가 찍어낸 티가 나지 않는 .pptx 발표자료를 만드는 스킬. 디자인 토큰(색 3개·폰트·타입스케일·그리드)을 먼저 확정하고 레이아웃 8종(표지/섹션/스테이트먼트/2단/데이터/인용/표/클로징)을 리듬으로 배치해, python-pptx로 좌표 단위까지 통제된 한글 슬라이드를 생성한다. 기본 테마색·Calibri·그림자·둥근 카드·기계적 불릿 같은 "AI PPT의 지문"을 린터가 사전 차단하고, 빌드 후 PNG로 렌더해 넘침·정렬을 눈으로 검수한다. 트리거 — "PPT 만들어줘", "발표자료 만들어줘", "슬라이드 만들어", "pptx 만들어", "PPT 티 안 나게", "AI 티 안 나는 발표자료", "덱 만들어줘", "강의자료 슬라이드", "제안서 PPT", "/ppt-deck". 후속 작업 — "팔레트 바꿔줘", "이 슬라이드만 고쳐", "발표용을 읽기용으로", "슬라이드 추가" 도 모두 이 스킬. 기존 .pptx에서 텍스트만 추출하거나 남의 템플릿을 그대로 채우는 작업은 anthropic-skills:pptx 쪽이 맞다.
+---
+
+# ppt-deck — AI 티 안 나는 PPTX 생성기 (v1.0)
+
+> 출처 계보: `zarazhangrui/frontend-slides`의 방법론(디자인 토큰 선확정 · show-don't-tell · 밀도 모드 · 안티슬롭 규칙)을 HTML이 아닌 **네이티브 .pptx**로 옮긴 것. 애니메이션·웹폰트·반응형은 의도적으로 버렸다.
+
+## 실행 환경
+
+```
+PY=${CLAUDE_SKILL_DIR}/.venv/bin/python      # python-pptx · pyyaml · pymupdf 설치됨
+```
+
+| 스크립트 | 하는 일 |
+| --- | --- |
+| `scripts/lint.py outline.yaml` | 내용·리듬의 AI 티 검사. ERROR 있으면 exit 1 |
+| `scripts/build.py outline.yaml -o out/deck.pptx` | 빌드 + 기하 자기검증(넘침·이탈·불릿 줄바꿈) |
+| `scripts/preview.py outline.yaml --slides 1,5` | 팔레트 3종 비교 PNG |
+| `scripts/svgpreview.py out/deck.manifest.json --png --sheet` | **검수 1순위.** 매니페스트 → SVG/PNG. 외부 앱·권한 없이 실제 Pretendard 파일로 그린다 |
+| `scripts/validate.py out/deck.pptx` | 파일 무결성 — XML·관계·콘텐츠타입·글꼴(latin/ea/cs)·endParaRPr·테마 |
+| `scripts/metrics.py` | 설치된 Pretendard에서 실제 글리프 폭 추출 (최초 1회 또는 폰트 교체 시) |
+| `scripts/render.py out/deck.pptx` | LibreOffice 실제 렌더. 없으면 실패한다(정상) |
+
+`references/deck-spec.yaml`이 디자인 토큰 단일 원천, `references/outline.example.yaml`이 아웃라인 문법의 레퍼런스다.
+
+## 핵심 계약 — 이걸 어기면 스킬을 쓰는 의미가 없다
+
+1. **슬라이드를 즉흥적으로 디자인하지 않는다.** 색·크기·좌표는 전부 `deck-spec.yaml`에서 파생된다. 예쁘게 하려고 코드에 숫자를 직접 박지 마라. 스펙을 고쳐라.
+2. **글자를 줄여서 맞추지 않는다.** 넘치면 내용을 쪼개 슬라이드를 늘린다. 타입스케일 이탈이 AI 티의 최대 원인이다.
+3. **렌더해서 눈으로 보기 전에 완료 보고를 하지 않는다.** 검수 없는 덱은 반드시 어딘가 깨져 있다.
+4. **린트 ERROR를 남긴 채 인도하지 않는다.** WARN은 판단해서 남길 수 있고, 남긴 이유를 사용자에게 말한다.
+
+---
+
+## Phase 0. 시작 선언
+
+작업 시작 시 한 줄 출력:
+
+```
+ppt-deck v1.0 — 밀도: {speaker|reading} / 팔레트: {name} / 예상 {N}장
+```
+
+## Phase 1. 내용과 밀도 확정
+
+구조화 질문 UI(AskUserQuestion)가 있으면 **한 번에 묶어서** 묻는다. 없으면 번호 매긴 한 메시지로.
+
+1. **용도** — 강의·수업 / 학회 발표 / 제안·설득 / 내부 공유·보고
+2. **밀도** — `speaker`(발표용: 1장 1메시지, 불릿 3개 이하, 큰 활자) / `reading`(읽기용: 자립형 슬라이드, 표·그리드, 불릿 6개까지)
+3. **분량** — 짧게 8~12장 / 보통 12~20장 / 길게 20장+
+4. **내용** — 원고 있음 / 메모 수준 / 주제만
+
+밀도를 먼저 못 박지 않으면 "제목 + 불릿 4~5개"가 30장 나온다. 그게 AI PPT의 가장 흔한 냄새다.
+
+내용이 "주제만"이면 먼저 아웃라인(제목 리스트)만 뽑아 확인받고 본문으로 넘어간다.
+
+## Phase 2. 팔레트 확정 — 보고 고른다
+
+`deck-spec.yaml`의 팔레트 3종:
+
+| 이름 | 성격 | 적합 |
+| --- | --- | --- |
+| `letterpress` | 따뜻한 오프화이트 + 먹 + 벽돌 주홍 | 기본값. 인쇄·배포물에 강함 |
+| `dive` | 딥 네이비 + 흰 활자 + 블루 | 강의용. 슬라이드마다 `invert: true`로 명·암 교차 |
+| `blueprint` | 딥 네이비 + 크림 + 앰버 | 어두운 강당, 프로젝터 |
+| `graphite` | 중성 회백 + 올리브 | 기술 문서, 고밀도 읽기용 |
+
+임시 아웃라인(표지 + 본문 1장)을 만들어 `preview.py`로 3종을 렌더하고 **PNG를 사용자에게 보여준 뒤** 고르게 한다. "모던하게 해주세요" 같은 추상 지시를 받아 알아서 정하지 마라 — 그 경로가 정확히 평균값(=AI slop)으로 수렴한다.
+
+사용자가 브랜드 색을 주면 `deck-spec.yaml`에 팔레트를 추가한다. **hex는 3개까지.** 4번째 색을 넣고 싶어지면 그건 색이 부족한 게 아니라 레이아웃이 틀린 것이다.
+
+## Phase 3. 아웃라인 작성
+
+`outline.yaml`을 쓴다. 문법은 `references/outline.example.yaml` 참조. 레이아웃 8종:
+
+| layout | 쓰는 자리 | 주요 키 |
+| --- | --- | --- |
+| `cover` | 1장 | (meta에서 자동) `title` `subtitle` |
+| `section` | 장 구분. accent 전면 반전 | `number` `label` `title` |
+| `statement` | 주장 한 줄. 호흡을 끊는다 | `text` `note` |
+| `two_col` | 본문 주력. 비대칭 4:7 | `title` `lead` `bullets`\|`body` |
+| `cards` | 번호 카드 2~6개. 3열(또는 2열) 그리드 | `label` `title` `items[{number,title,body,image}]` |
+| `image_split` | 반출혈 이미지 + 텍스트 | `image` `side:left\|right` `label` `title` `lead` `bullets` `caption` |
+| `image_full` | 위는 전출혈 이미지, 아래는 바탕색 판 | `image` `label` `title` `caption` |
+
+`two_col`의 `lead`는 장식이 아니다. lead 없이 불릿이 2개 이하면 왼쪽 컬럼에 질량이 없어 화면이 오른쪽으로 쏠린다. lead를 넣거나 `statement`로 바꿔라 (린터가 `BALANCE`로 잡는다).
+| `data` | 숫자 1~3개. **첫 항목이 히어로**, 나머지는 우측에 작게 종속 | `title` `items[{value,unit,caption}]` |
+| `quote` | 인용·증언 | `text` `source` |
+| `table` | 비교·일정 | `title` `headers` `rows` |
+| `closing` | 마지막. 표지를 좌우 반전한 우측 정렬 | `title` `lines` |
+
+### 배치 규칙 (리듬)
+
+- 같은 레이아웃 **3연속 금지**. 4~6장마다 `statement` / `data` / `quote` 중 하나를 끼운다.
+- 덱 전체에서 최소 4종을 쓴다. `two_col`만 반복되는 덱은 내용과 무관하게 AI가 찍어낸 티가 난다.
+- `section`은 논리적 장이 실제로 바뀔 때만. 장식으로 쓰면 리듬이 아니라 소음이다.
+
+### 문장 규칙 (AI 티의 본체는 디자인이 아니라 문장이다)
+
+- **불릿은 명사구로 끝낸다.** "~합니다", "~입니다", 마침표 금지. → `"조교별 엄격도 드리프트"` ○ / `"조교별로 엄격도가 달라집니다."` ✗
+- **불릿 길이를 일부러 흩뜨린다.** 3개가 전부 비슷한 길이면 사람이 쓴 글이 아니다. 하나는 짧게, 하나는 길게.
+- **같은 두 글자로 시작하는 불릿을 나열하지 않는다.** ("첫째/둘째/셋째", "AI는/AI는/AI는")
+- **제목을 병렬로 맞추지 않는다.** "X의 이해 / X의 활용 / X의 전망"은 AI 목차의 지문이다. 최소 하나는 깬다.
+- **상투어 금지** — 다양한, 효율적, 혁신적, 극대화, 체계적으로, 패러다임, 살펴보겠습니다, 중요합니다. 전부 구체적인 명사·숫자로 바꾼다.
+- **이모지·아이콘 금지.**
+- 숫자는 `data` 레이아웃으로 크게 보여주고, 근거·출처는 `note`/`caption`에 작게 붙인다.
+- **`data`의 items 순서가 곧 위계다.** 가장 중요한 숫자를 첫 번째에 놓는다. 같은 크기 숫자 3개를 나란히 놓는 구성은 슬라이드가 아니라 대시보드 위젯이고, 그게 정확히 AI 티다.
+- **장식용 영문 대문자 라벨을 붙이지 않는다.** 한글 덱의 `POINTS` / `OVERVIEW` / `KEY INSIGHTS`는 AI가 붙이는 스티커다. 단위는 `unit`으로 숫자에 붙이고(`62 시간`, `27%`), 설명은 한글 캡션으로 쓴다.
+
+## 이미지
+
+`image:` 에 파일 경로를 준다. 빌더가 PIL로 미리 잘라 넣으므로 **비율이 찌그러지지 않고**, 잘린 원본이 파일에 남지 않는다.
+
+- `fit: cover`(기본) — 상자를 꽉 채우고 넘치는 쪽을 잘라낸다. 반출혈·썸네일용
+- `fit: contain` — 통째로 넣고 남는 쪽을 여백으로. 도표·스크린샷용
+- `focus: top|center|bottom` — cover 로 세로를 자를 때의 기준선. **인물 사진은 `top`**. 가운데로 자르면 머리가 날아간다 (카드 썸네일은 기본값이 `top`)
+- `two_col`에 `bullets` 없이 `image`만 주면 오른쪽 칸이 이미지가 된다
+- `cards`의 `items[].image`는 카드 위 썸네일이 된다
+
+**사진 위에 글자를 얹지 않는다.** `image_full`이 이미지와 글자를 위아래로 가르는 이유다 — 어떤 사진이 올지 모르는 채로 가독성을 도박하지 않는다. 쪽번호가 이미지에 깔리면 빌더가 알아서 반대쪽으로 피하거나 생략한다.
+
+Anthropic pptx 스킬은 **"글자만 있는 슬라이드는 기억에 남지 않는다"**고 못 박는다. 8장 이상인데 이미지가 하나도 없으면 린터가 `VISUAL`로 경고한다. 이미지가 없는 주제라면 `data`의 큰 숫자와 `statement`가 그 역할을 대신해야 한다.
+
+## 폰트 임베딩
+
+```
+$PY ${CLAUDE_SKILL_DIR}/scripts/build.py outline.yaml -o out/deck.pptx --embed-fonts
+```
+
+또는 `meta.embed_fonts: true`. 발표 PC에 Pretendard가 없어도 그대로 나온다. 굵기당 1~2MB(4종이면 약 +5MB)가 붙으므로 **남의 PC에서 틀 때만** 켠다.
+
+**PowerPoint는 TTF만 임베드한다.** Pretendard 공식 릴리스의 `public/static/`은 OTF(CFF)라 거부당한다 — `public/static/alternative/`의 TrueType 빌드를 설치해야 한다. 패밀리명·메트릭·글리프 수가 동일해서 레이아웃은 변하지 않는다. `validate.py`가 시그니처를 검사한다.
+
+## 장식 금지 — 강조선에 대하여
+
+Anthropic pptx 스킬은 **제목 밑 강조선**과 **카드 한쪽 모서리 액센트 줄**을 "AI 생성 슬라이드의 지문"으로 명시해 금지한다. 타당하다. 그래서 이 스킬은 **장식용 줄을 만들지 않는다.**
+
+남아 있는 줄은 전부 **구조를 나타내는 것**뿐이다:
+
+- `cover`·`closing`의 머리줄 — 마스트헤드 장치, 덱당 2장
+- `data`의 히어로 밑줄 — 숫자와 캡션을 가르는 구분자
+- `table`의 머리행 밑줄 — 헤더와 본문의 경계
+
+`two_col`·`statement`·`cards`에는 줄이 없다. 눈썹 라벨(`label`)과 번호가 그 자리를 대신한다. **새 레이아웃을 만들 때 "허전하니까 줄 하나"를 넣지 마라.** 허전하면 여백이 잘못된 것이다.
+
+## Phase 4. 린트 → 빌드 → 검수 → 검증
+
+```
+$PY ${CLAUDE_SKILL_DIR}/scripts/lint.py     outline.yaml
+$PY ${CLAUDE_SKILL_DIR}/scripts/build.py    outline.yaml -o out/deck.pptx
+$PY ${CLAUDE_SKILL_DIR}/scripts/svgpreview.py out/deck.manifest.json --png --sheet
+$PY ${CLAUDE_SKILL_DIR}/scripts/validate.py out/deck.pptx
+```
+
+1. **lint ERROR는 전부 해소한다.** WARN은 판단하되, 무시했으면 왜 무시했는지 말한다.
+2. **build 경고를 읽는다.** `넘침 추정` / `불릿이 N줄로 접힌다` / `캔버스 이탈` — 전부 **내용을 줄이라는 신호이지 폰트를 줄이라는 신호가 아니다.**
+3. **렌더된 PNG를 실제로 읽는다.** 최소 표지 + 본문 2장 + 표/데이터 1장. 확인 항목:
+   - 글자 잘림·겹침
+   - 왼쪽 마진이 전 슬라이드 동일한가 (표지·섹션 제외)
+   - 한글이 Pretendard로 나오는가 (다른 폰트로 나오면 `ea` 타이프페이스 누락)
+   - 빈 공간이 "의도된 여백"인가 "덜 채운 자리"인가
+   - 강조선(rule)이 제목에 붙어 있는가, 혼자 떠 있는가
+   - 대칭 반복이 생기지 않았는가 — 같은 크기·같은 간격의 3분할이 보이면 위계를 다시 잡는다
+4. 고치면 2번으로 돌아간다. 통과할 때까지 반복.
+
+**검수 경로는 `svgpreview.py`가 1순위다.** 설치된 Pretendard TTF를 직접 읽어 PIL로 그리므로 LibreOffice도 PowerPoint도 권한도 필요 없다. `--png`로 PNG를 굽고 **그 이미지를 실제로 읽어라.** `--sheet`는 전체를 한 장에 늘어놓은 컨택트시트다 — 리듬과 명·암 교차를 한눈에 본다.
+
+**이 미리보기의 한계를 정확히 알고 말하라.** 줄바꿈을 빌더와 같은 메트릭으로 계산하므로 **빌더가 놓친 넘침은 여기서도 안 보인다.** 커닝·합자·PowerPoint 고유의 줄바꿈 규칙도 재현하지 않는다. 구성·균형·색·여백은 신뢰할 수 있고, 최종 확인은 PowerPoint에서 여는 것이다.
+
+`render.py`(LibreOffice)는 진짜 렌더가 필요할 때만. `--allow-powerpoint`는 **앱이 뜨고 macOS 자동화 권한을 반복 요구하므로 사용자가 명시적으로 허락했을 때만** 쓴다.
+
+## Phase 5. 인도
+
+`out/deck.pptx`와 검수용 PNG 경로를 알려준다. 함께 보고할 것:
+
+- 쓴 팔레트·밀도·장수
+- 남긴 WARN과 그 이유
+- 사용자가 직접 손댈 지점 (숫자 출처, 사내 용어, 로고 자리)
+
+`validate.py`가 FAIL을 내면 그대로 인도하지 마라. 특히 `endParaRPr`와 `ea` 타이프페이스 실패는 **사용자가 글상자를 클릭하는 순간 글꼴이 Calibri·맑은 고딕으로 튀는** 증상으로 나타난다.
+
+남의 PC에서 틀 예정이면 `--embed-fonts`를 쓰라고 안내한다. 안 쓰면 Pretendard가 없는 PC에서 대체 폰트로 깨진다.
+
+## 후속 요청 처리
+
+- "팔레트 바꿔줘" → `meta.palette`만 교체 후 재빌드. 아웃라인은 그대로다.
+- "읽기용으로" → `meta.density: reading`. 불릿 한도와 본문 크기가 같이 바뀌므로 **린트를 다시 돌린다.**
+- "슬라이드 추가" → 추가 후 반드시 리듬 규칙(3연속 금지) 재확인.
+- "이 레이아웃이 필요해" → `build.py`에 함수를 추가하고 `LAYOUTS`에 등록. 좌표는 `g.x()/g.w()`로만 쓰고 크기는 `deck-spec.yaml`의 styles에서만 가져온다.

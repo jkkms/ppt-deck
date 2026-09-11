@@ -1,0 +1,70 @@
+# ppt-deck 아웃라인 — 다음부터 손대는 건 이 파일 하나뿐이다.
+#
+# 아래 수치·인용은 전부 레이아웃 시연용 가상 데이터다. 실제 기관·강의의 기록이 아니다.
+meta:
+  title: "재현 가능한 채점 파이프라인"
+  subtitle: "조교 6명이 480편을 3일에 끝내는 구조"
+  author: "이든"
+  org: "교육공학팀"
+  date: "2026.03"
+  palette: letterpress        # letterpress | blueprint | graphite
+  density: speaker            # speaker(발표용) | reading(읽기용)
+  output: "out/deck.pptx"
+
+slides:
+  - layout: cover
+
+  - layout: section
+    number: "01"
+    label: "문제"
+    title: "채점은 왜 매번 무너지는가"
+
+  - layout: statement
+    text: "같은 답안, 조교마다 다른 점수."
+    note: "직전 학기 · 무작위 40편 재채점 기준"
+
+  # items 순서가 곧 위계다. 첫 항목이 히어로로 크게 서고 나머지는 우측에 종속된다.
+  - layout: data
+    title: "재채점 실측"
+    items:
+      - {value: "11.3", unit: "점", caption: "조교 간 평균 점수 편차. 40편 무작위 재채점 기준"}
+      - {value: "62",   unit: "시간", caption: "1회차 총 채점 시간"}
+      - {value: "27",   unit: "%",  caption: "이의제기로 되돌아온 답안"}
+
+  - layout: two_col
+    title: "무너지는 지점"
+    lead: "루브릭이 아니라 루브릭을 읽는 방식이 흔들린다."
+    bullets:
+      - "부분점수 기준의 구두 합의"
+      - "조교별 엄격도가 뒤로 갈수록 느슨해짐"
+      - "이의제기 처리 이력이 남지 않음"
+
+  - layout: quote
+    text: "규칙을 문서로 못 박기 전까지, 공정성은 그날 조교의 컨디션이었다."
+    source: "운영 회고록"
+
+  - layout: section
+    number: "02"
+    label: "설계"
+    title: "루브릭을 먼저 못 박는다"
+
+  - layout: table
+    title: "3일 운영 계획"
+    headers: ["단계", "산출물", "담당"]
+    rows:
+      - ["D-1 캘리브레이션", "표본 20편 합의 점수표", "전원"]
+      - ["D1 1차 채점", "항목별 점수 + 근거 문장", "조교 6"]
+      - ["D2 교차 검수", "편차 3점 이상 답안 재심", "책임조교"]
+      - ["D3 이의 처리", "판정 로그", "책임조교"]
+
+  # lead 없이 불릿 2개 이하면 왼쪽 컬럼이 비어 화면이 쏠린다. 린터가 BALANCE로 잡는다.
+  - layout: two_col
+    title: "남은 위험"
+    lead: "설계가 막지 못하는 두 가지."
+    bullets:
+      - "표본 20편이 난이도 분포를 못 덮을 때"
+      - "D2 재심 물량 초과에 따른 일정 지연"
+
+  - layout: closing
+    title: "다음 학기부터 적용"
+    lines: ["이든 · name@example.com", "루브릭 초안은 3월 20일까지"]

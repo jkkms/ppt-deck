@@ -1,0 +1,76 @@
+# ppt-deck 디자인 토큰 — 슬라이드를 만들기 전에 여기서 모든 결정을 끝낸다.
+# 이 파일에 없는 색·크기·간격은 builder가 쓰지 않는다. 그게 AI 티를 막는 1차 방어선이다.
+
+canvas:
+  width_pt: 960      # 16:9 = 13.333in x 7.5in
+  height_pt: 540
+
+grid:
+  margin_x: 72       # 좌우 마진. 모든 레이아웃이 공유한다(표지/섹션만 의도적으로 깬다)
+  margin_top: 56
+  margin_bottom: 56
+  columns: 12
+  col_w: 46
+  gutter: 24         # 컬럼 step = 70pt
+
+# --- 색: hex 값은 팔레트당 3개뿐. 나머지는 전부 이 3개의 의미론적 별칭이다 -------
+palettes:
+  letterpress:              # 밝음 / 편집디자인 / 인쇄물에 강함 (기본값)
+    ground:  "F4F1EA"       # 따뜻한 오프화이트 — 바탕
+    figure:  "1B1B1F"       # 푸른기 도는 먹 — 본문
+    accent:  "C8452D"       # 벽돌 주홍 — 강조 1개뿐
+  blueprint:                # 어두움 / 무대 발표 / 프로젝터에 강함
+    ground:  "122033"
+    figure:  "EDE6D6"
+    accent:  "D98E32"
+  graphite:                 # 중성 / 기술문서 / 고밀도 읽기용
+    ground:  "FAFAF8"
+    figure:  "22252A"
+    accent:  "6E7F32"
+  dive:                     # 딥 네이비 + 흰 활자 + 블루. 강의용. invert로 명/암을 번갈아 쓴다
+    ground:  "0E1A2B"
+    figure:  "FFFFFF"
+    accent:  "1B7FD4"
+active_palette: letterpress
+muted_mix: 0.45             # figure를 ground 쪽으로 45% 섞어 캡션용 muted를 만든다
+
+fonts:
+  display: "Pretendard Black"
+  head:    "Pretendard SemiBold"
+  body:    "Pretendard"
+  label:   "Pretendard Medium"
+
+# --- 타입 스케일: 이 표에 없는 크기는 존재하지 않는다 -------------------------
+# tracking 단위 = 1/100 pt (PPTX rPr/@spc). 큰 글자일수록 음수로 조여야 사람 손맛이 난다.
+styles:
+  mega:    {font: display, size: 200, leading: 0.82, tracking: -500}
+  stat1:   {font: display, size: 160, leading: 0.85, tracking: -400}
+  stat2:   {font: display, size: 132, leading: 0.88, tracking: -350}
+  stat3:   {font: display, size: 96,  leading: 0.92, tracking: -250}
+  stat_sub: {font: display, size: 62, leading: 0.95, tracking: -160}
+  stat_sub2: {font: display, size: 46, leading: 1.0, tracking: -120}
+  display: {font: display, size: 84,  leading: 0.98, tracking: -200}
+  quote:   {font: head,    size: 44,  leading: 1.28, tracking: -90}
+  h1:      {font: head,    size: 40,  leading: 1.08, tracking: -80}
+  h2:      {font: head,    size: 24,  leading: 1.30, tracking: -40}
+  body:    {font: body,    size: 18,  leading: 1.55, tracking: 0}
+  small:   {font: body,    size: 15,  leading: 1.45, tracking: 0}
+  label:   {font: label,   size: 12,  leading: 1.20, tracking: 70}
+
+# --- 밀도: 발표용/읽기용을 먼저 정하지 않으면 "제목+불릿 4개"가 30장 나온다 ----
+density: speaker
+density_limits:
+  speaker: {bullets: 3, bullet_chars: 34, table_rows: 5}
+  reading: {bullets: 6, bullet_chars: 80, table_rows: 10}
+
+rhythm:
+  max_same_layout_run: 2    # 같은 레이아웃 3연속 금지
+  page_number_from: 2       # 표지 다음부터 쪽번호
+
+hard_rules:                 # builder가 절대 생성하지 않는 것들
+  - no_shadow
+  - no_rounded_corner
+  - no_gradient
+  - no_3d
+  - no_theme_table_style
+  - no_emoji
