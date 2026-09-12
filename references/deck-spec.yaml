@@ -44,6 +44,8 @@ colors:
   hairline_mix: 0.78      # 0.5pt 구조선 전용. 활자에는 쓰지 않는다
   accent_tint_mix: 0.94   # 패널 채움 (실측 EDF1EC)
   accent_soft_mix: 0.37   # 보조 배지·연결선 (실측 6E9C7F)
+  accent_mid_mix:  0.75   # 중첩 다이어그램 중간 고리 (실측 C7DDF2)
+  accent_pale_mix: 0.88   # 중첩 바깥 고리 (실측 E4EDF7)
   min_ratio_body: 4.5     # body 이상 크기는 ground 대비 4.5:1
   min_ratio_caption: 3.0  # 캡션(small·micro)은 3.0:1
 
@@ -116,6 +118,20 @@ shapes:
   chain_step:   53      # 사슬 행 step (실측 53.3)
   connector_w:  1       # 연결선 두께 (실측 1.0pt 193회)
   divider_w:    1       # 전폭 구분선 (실측 845 길이 73회)
+  # --- 다이어그램 (Dive 10·17·26·27쪽 실측) ---
+  node_d:       23      # 타임라인 마디 (실측 23.0)
+  node_year_dy: -50     # 축 대비 연도 y (실측 296.6 vs 346.3)
+  node_title_dy: 28     # 축 대비 소제목 y (실측 374.4)
+  node_desc_dy: 61      # 축 대비 설명 y (실측 407.5)
+  stair_h:      65      # 계단 패널 높이 (실측 64.8)
+  stair_step:   72      # 계단 행 step (실측 72.0)
+  stair_w_min:  0.40    # 첫 단 폭 / 콘텐츠 폭 (실측 337.9/837.6)
+  stair_w_max:  0.73    # 마지막 단 (실측 614.4/837.6)
+  stair_badge_d: 35     # 계단 배지 (실측 34.6)
+  stair_pad_x:  30      # 패널 좌변 -> 배지 (실측 30.2)
+  stair_text_x: 82      # 패널 좌변 -> 제목 (실측 82.1)
+  compare_h:    212     # 비교 패널 높이 (실측 212.4)
+  compare_gap:  25      # 비교 패널 사이 (실측 25.2)
 
 table:
   header_h: 28

@@ -126,7 +126,9 @@ def derive(pal: dict, cfg: dict) -> dict:
                "hairline": mix(f, g, c["hairline_mix"]),
                # 실측 — 패널 채움 EDF1EC = accent 를 ground 쪽으로 0.94, 보조 배지 6E9C7F = 0.37
                "accent_tint": mix(pal["accent"], g, c.get("accent_tint_mix", 0.94)),
-               "accent_soft": mix(pal["accent"], g, c.get("accent_soft_mix", 0.37))}
+               "accent_soft": mix(pal["accent"], g, c.get("accent_soft_mix", 0.37)),
+               "accent_mid":  mix(pal["accent"], g, c.get("accent_mid_mix", 0.75)),
+               "accent_pale": mix(pal["accent"], g, c.get("accent_pale_mix", 0.88))}
         assert contrast(out["ink2"], g) >= c["min_ratio_body"], \
             f"ink2 vs ground {contrast(out['ink2'], g):.2f}"
         assert contrast(out["muted"], g) >= c["min_ratio_caption"], \
@@ -140,7 +142,9 @@ def derive(pal: dict, cfg: dict) -> dict:
     return {"ground": g, "figure": f, "accent": pal["accent"],
             "ink2": f, "muted": muted, "faint": muted, "hairline": hairline,
             "accent_tint": mix(pal["accent"], g, 0.94),
-            "accent_soft": mix(pal["accent"], g, 0.37)}
+            "accent_soft": mix(pal["accent"], g, 0.37),
+            "accent_mid":  mix(pal["accent"], g, c.get("accent_mid_mix", 0.75)),
+            "accent_pale": mix(pal["accent"], g, c.get("accent_pale_mix", 0.88))}
 
 
 # ---------------------------------------------------------------- §6 줄수 계산
@@ -464,7 +468,7 @@ class Deck:
                           color, "connector", True)
 
     def badge(self, s, cx, cy, d=32.0, color="accent", glyph="", glyph_color="ground",
-              style="small"):
+              style="small", kind="badge"):
         """원형 배지. 실측 지름 32(주) / 24(보조). 번호·기호를 담아 행의 시작점을 잡는다."""
         x, y = cx - d / 2, cy - d / 2
         sh = s.shapes.add_shape(MSO_SHAPE.OVAL, Pt(x), Pt(y), Pt(d), Pt(d))
@@ -472,11 +476,21 @@ class Deck:
         sh.line.fill.background(); sh.shadow.inherit = False
         sh.text_frame.text = ""
         self.shapes.append(dict(slide=self._slide_i, x=x, y=y, w=d, h=d,
-                                color=self.c(color), kind="badge"))
+                                color=self.c(color), kind=kind))
         if glyph:
             st = self.spec["styles"][style]
             self.text(s, style, x, cy - st["size"] * 0.72, d, st["size"] * 1.45,
                       str(glyph), color=glyph_color, align="center", tag="badge-glyph")
+        return sh
+
+    def oval(self, s, x, y, w, h, color="accent_pale"):
+        """임의 비율 타원. 포함관계(동심원) 다이어그램에만 쓴다."""
+        sh = s.shapes.add_shape(MSO_SHAPE.OVAL, Pt(x), Pt(y), Pt(w), Pt(h))
+        sh.fill.solid(); sh.fill.fore_color.rgb = RGBColor.from_string(self.c(color))
+        sh.line.fill.background(); sh.shadow.inherit = False
+        sh.text_frame.text = ""
+        self.shapes.append(dict(slide=self._slide_i, x=x, y=y, w=w, h=h,
+                                color=self.c(color), kind="ring"))
         return sh
 
     def connector(self, s, x, y, h, w=1.0, color="accent_soft"):

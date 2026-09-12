@@ -401,6 +401,158 @@ def card_grid(d, s, m, sl):
                    color="ink2", tag="card-body")
 
 
+def timeline(d, s, m, sl):
+    """가로 타임라인. 실측 — Dive 10쪽. 축선 위에 시기, 아래에 제목·설명.
+    지나간 마디는 faint, 최근 마디는 accent 로 칠해 현재 위치를 표시한다."""
+    g = L(d)
+    SH = d.spec["shapes"]
+    g.head(s, sl, span=12)
+    nodes = (sl.get("nodes") or [])[:5]
+    n = len(nodes)
+    if not 3 <= n <= 5:
+        raise SystemExit(f"timeline 은 마디 3~5개만 지원한다 (받은 값: {n}).")
+    total = span_w(12)
+    nw = total / n * 0.85
+    step = (total - nw) / (n - 1)
+    body_h = 50 + SH["node_desc_dy"] + 58
+    axis_y = g.top + 50 + max(0.0, (g.h - body_h) * 0.40)
+    d.divider(s, col_x(1) + SH["node_d"] / 2, axis_y,
+              step * (n - 1), color="faint")
+    live = sl.get("live_from", max(1, n - 1))       # 이 마디부터 accent
+    for i, nd in enumerate(nodes):
+        x = col_x(1) + i * step
+        d.badge(s, x + SH["node_d"] / 2, axis_y + 0.5, SH["node_d"],
+                "accent" if i + 1 >= live else "faint", kind="node")
+        d.text(s, "h2", x, axis_y + SH["node_year_dy"], nw, 28,
+               str(nd.get("when", "")), tag="node-year")
+        d.text(s, "lead", x, axis_y + SH["node_title_dy"], nw, 24,
+               str(nd.get("title", "")), font_key="head", tag="node-title")
+        if nd.get("body"):
+            bh_ = g.bh(nd["body"], nw, "small")
+            d.text(s, "small", x, axis_y + SH["node_desc_dy"], nw, bh_,
+                   nd["body"], color="muted", tag="node-body")
+    if sl.get("footnote"):
+        d.text(s, "micro", col_x(1), g.bottom - 16, span_w(8), 15,
+               sl["footnote"], color="muted", tag="footnote")
+
+
+def stair(d, s, m, sl):
+    """단계가 올라갈수록 패널이 넓어지는 계단. 실측 — Dive 26쪽.
+    마지막 단만 반전 채움으로 도착점을 표시한다. 우측 라벨은 패널 밖에 고정."""
+    g = L(d)
+    SH = d.spec["shapes"]
+    g.head(s, sl, span=12)
+    items = (sl.get("items") or [])[:5]
+    n = len(items)
+    if not 3 <= n <= 5:
+        raise SystemExit(f"stair 는 단계 3~5개만 지원한다 (받은 값: {n}).")
+    total = span_w(12)
+    ph, step = SH["stair_h"], SH["stair_step"]
+    y0 = g.top + max(0.0, (g.h - (step * (n - 1) + ph) - 28) * 0.30)
+    has_label = any(it.get("label") for it in items)
+    lab_x = col_x(1) + total - 194 if has_label else None
+    for i, it in enumerate(items):
+        frac = SH["stair_w_min"] + (SH["stair_w_max"] - SH["stair_w_min"]) * i / (n - 1)
+        w = total * frac
+        y = y0 + i * step
+        last = (i == n - 1)
+        d.panel(s, col_x(1), y, w, ph,
+                color="figure" if last else "accent_tint", radius=SH["panel_radius"])
+        d.badge(s, col_x(1) + SH["stair_pad_x"] + SH["stair_badge_d"] / 2, y + ph / 2,
+                SH["stair_badge_d"], "accent_soft" if last else "accent",
+                glyph=str(it.get("index", i + 1)),
+                glyph_color="figure" if last else "ground", style="lead")
+        tc = "ground" if last else "figure"
+        bc = "ground" if last else "muted"
+        tw = w - SH["stair_text_x"] - 20
+        d.text(s, "lead", col_x(1) + SH["stair_text_x"], y + 11, tw, 22,
+               it.get("title", ""), color=tc, font_key="head", tag="stair-title")
+        if it.get("body"):
+            d.text(s, "small", col_x(1) + SH["stair_text_x"], y + 38, tw, 18,
+                   it["body"], color=bc, tag="stair-body")
+        if lab_x and it.get("label"):
+            d.text(s, "h2", lab_x, y + ph / 2 - 14, 194, 28, it["label"],
+                   color="ink2", tag="stair-label")
+    if sl.get("footnote"):
+        d.text(s, "small", col_x(1), g.bottom - 20, span_w(12), 19,
+               sl["footnote"], color="muted", tag="footnote")
+
+
+def compare(d, s, m, sl):
+    """좌우 대비 두 패널. 실측 — Dive 17쪽. 한쪽은 tint, 다른 쪽은 반전 채움으로
+    어느 쪽이 답인지 색이 먼저 말한다. 배지 기호(x / o)가 그 판단을 반복한다."""
+    g = L(d)
+    SH = d.spec["shapes"]
+    g.head(s, sl, span=12)
+    pair = (sl.get("pair") or [])[:2]
+    if len(pair) != 2:
+        raise SystemExit("compare 는 항목이 정확히 2개여야 한다.")
+    ph, gap = SH["compare_h"], SH["compare_gap"]
+    pw = (span_w(12) - gap) / 2
+    y = g.top + max(0.0, (g.h - ph) * 0.30)
+    for i, it in enumerate(pair):
+        x = col_x(1) + i * (pw + gap)
+        good = bool(it.get("good"))
+        d.panel(s, x, y, pw, ph, color="figure" if good else "accent_tint",
+                radius=SH["panel_radius"])
+        d.badge(s, x + SH["stair_pad_x"] + SH["stair_badge_d"] / 2, y + ph / 2,
+                SH["stair_badge_d"], "accent" if good else "accent_soft",
+                glyph=it.get("mark", "\u25cb" if good else "\u00d7"),
+                glyph_color="figure" if good else "ground", style="lead")
+        tx = x + SH["stair_text_x"]
+        tw = pw - SH["stair_text_x"] - 24
+        tc = "ground" if good else "figure"
+        bc = "ground" if good else "ink2"
+        th = g.bh(it.get("title", ""), tw, "h2")
+        d.text(s, "h2", tx, y + 50, tw, th, it.get("title", ""), color=tc,
+               tag="compare-title")
+        if it.get("body"):
+            bh_ = g.bh(it["body"], tw, "body")
+            d.text(s, "body", tx, y + 50 + th + 12, tw, bh_, it["body"],
+                   color=bc, tag="compare-body")
+
+
+def nest(d, s, m, sl):
+    """포함관계. 실측 — Dive 27쪽. 왼쪽 동심 타원 + 오른쪽 설명 패널 + 결론 칩.
+    타원은 바깥에서 안으로 진해진다."""
+    g = L(d)
+    SH = d.spec["shapes"]
+    g.head(s, sl, span=12)
+    rings = (sl.get("rings") or [])[:3]
+    if len(rings) != 3:
+        raise SystemExit("nest 는 고리가 정확히 3개여야 한다.")
+    lw = span_w(6)
+    ox, oy = col_x(1) + 18, g.top + 62
+    ow, oh = lw - 36, 277.0
+    tones = ["accent_pale", "accent_mid", "accent"]
+    for k in range(3):
+        f = k / 3.0
+        w, h = ow * (1 - f * 0.58), oh * (1 - f * 0.61)
+        x = ox + (ow - w) / 2
+        y = oy + k * 42
+        d.oval(s, x, y, w, h, color=tones[k])
+        # 가장 안쪽 고리는 라벨을 세로 중앙에 — 바깥 고리는 위쪽에 얹어 겹침을 피한다
+        ly = y + (h - 24) / 2 if k == 2 else y + 13
+        d.text(s, "lead", x, ly, w, 24, str(rings[k].get("name", "")),
+               align="center", color="ground" if k == 2 else "figure", tag="ring-label")
+
+    rx, rw = col_x(7), span_w(6)
+    pyy, phh = g.top + 62, 80
+    for k, r in enumerate(rings):
+        y = pyy + k * (phh + 9)
+        d.panel(s, rx, y, rw, phh, color="accent_tint", radius=SH["panel_radius"])
+        d.text(s, "h2", rx + SH["stair_pad_x"], y + 8, rw - 60, 26,
+               str(r.get("name", "")), tag="nest-title")
+        if r.get("body"):
+            d.text(s, "small", rx + SH["stair_pad_x"], y + 40, rw - 60, 34,
+                   r["body"], color="ink2", tag="nest-body")
+    if sl.get("conclusion"):
+        cy = pyy + 3 * (phh + 9) + 12
+        d.panel(s, rx, cy, rw, 40, color="figure", radius=SH["panel_radius"])
+        d.text(s, "lead", rx, cy + 10, rw, 22, sl["conclusion"], align="center",
+               color="ground", font_key="head", tag="nest-conclusion")
+
+
 def table(d, s, m, sl):
     T = d.spec["table"]
     g = L(d)
@@ -475,6 +627,7 @@ def image_full(d, s, m, sl):
 LAYOUTS = {"cover": cover, "closing": closing, "section": section, "chain": chain,
            "statement": statement, "two_col": two_col, "cards": cards,
            "panel_list": panel_list, "card_grid": card_grid,
+           "timeline": timeline, "stair": stair, "compare": compare, "nest": nest,
            "data": data, "quote": quote, "table": table,
            "image_split": image_split, "image_full": image_full}
 INVERTED = {"section", "closing"}

@@ -33,6 +33,8 @@ colors:
   hairline_mix:    0.70     # 0.75pt 구조선 전용. 활자에는 절대 쓰지 않는다
   muted_min_ratio_ground: 4.5
   muted_min_ratio_figure: 1.7
+  accent_mid_mix:  0.75
+  accent_pale_mix: 0.88
 
 # --- 타입 스케일 -------------------------------------------------------------
 # tracking 단위 = 1/100 pt (PPTX rPr/@spc). 이 표에 없는 크기는 존재하지 않는다.
@@ -109,7 +111,7 @@ cards:
   cell_step:     161      # quad · dense
   gutter_v:      32
 
-shapes:                 # house 와 키를 맞춘다. editorial 은 도형을 거의 쓰지 않는다
+shapes:
   badge_d: 32
   badge_d_sub: 24
   badge_gap: 13
@@ -132,6 +134,19 @@ shapes:                 # house 와 키를 맞춘다. editorial 은 도형을 �
   chain_step: 53
   connector_w: 1
   divider_w: 1
+  node_d: 23
+  node_year_dy: -50
+  node_title_dy: 28
+  node_desc_dy: 61
+  stair_h: 65
+  stair_step: 72
+  stair_w_min: 0.4
+  stair_w_max: 0.73
+  stair_badge_d: 35
+  stair_pad_x: 30
+  stair_text_x: 82
+  compare_h: 212
+  compare_gap: 25
 
 # --- table ------------------------------------------------------------------
 table:
