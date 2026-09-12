@@ -42,6 +42,8 @@ colors:
   tone_muted: 0.48        # 캡션 · 러너
   tone_faint: 0.68        # 구분선 · 아주 약한 배경 활자
   hairline_mix: 0.78      # 0.5pt 구조선 전용. 활자에는 쓰지 않는다
+  accent_tint_mix: 0.94   # 패널 채움 (실측 EDF1EC)
+  accent_soft_mix: 0.37   # 보조 배지·연결선 (실측 6E9C7F)
   min_ratio_body: 4.5     # body 이상 크기는 ground 대비 4.5:1
   min_ratio_caption: 3.0  # 캡션(small·micro)은 3.0:1
 
@@ -90,6 +92,17 @@ cards:
   mode_by_count: {2: pair, 3: ledger, 4: quad, 5: dense, 6: dense}
   gutter_v: 28
 
+# --- 도형 어휘: 실측값. 텍스트만 있는 장이 이어지면 아무도 안 본다 ------------
+shapes:
+  badge_d:      32      # 주 배지 지름 (실측 124회)
+  badge_d_sub:  24      # 보조 배지 (실측 62회)
+  panel_h:      61      # 패널 기본 높이 (실측 61.3)
+  panel_radius: 5       # 모서리 반경 (실측 5.0pt)
+  panel_pad_x:  24      # 패널 좌우 안여백
+  chain_indent: 47.5    # 사슬 들여쓰기 step (실측 82.1 -> 129.6 -> 177.1)
+  chain_step:   53      # 사슬 행 step (실측 53.3)
+  connector_w:  1       # 연결선 두께 (실측 1.0pt 193회)
+
 table:
   header_h: 28
   row_h:    32
@@ -105,15 +118,17 @@ density_limits:
   speaker: {bullets: 4, bullet_chars: 60, table_rows: 6}
   reading: {bullets: 7, bullet_chars: 120, table_rows: 9}
 
+# 금지의 기준은 "도형을 쓰지 마라"가 아니라 "장식만 하는 도형을 쓰지 마라"다.
+# 사용자 덱 실측 — 슬라이드당 도형 중앙값 5개(배지 295 · 패널 269 · 연결선 124).
+# 전부 구조를 나타낸다: 배지는 행의 시작점, 패널은 묶음, 연결선은 관계.
 hard_rules:
   - no_shadow
-  - no_rounded_corner
   - no_gradient
   - no_3d
   - no_theme_table_style
   - no_emoji
-  - no_decor_rule
-  - no_full_width_band
+  - no_decorative_shape    # 모든 도형은 활자를 담거나 두 요소의 관계를 나타내야 한다
+  - no_title_underline     # 제목 밑 강조선만은 여전히 금지
 
 rhythm:
   max_same_layout_run: 2

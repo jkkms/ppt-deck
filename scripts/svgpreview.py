@@ -165,9 +165,16 @@ def raster(man, idx, scale=1.0):
     for sh in man.get("shapes", []):
         if sh["slide"] != idx:
             continue
-        dr.rectangle([sh["x"] * scale, sh["y"] * scale,
-                      (sh["x"] + sh["w"]) * scale, (sh["y"] + sh["h"]) * scale],
-                     fill="#" + sh["color"])
+        box = [sh["x"] * scale, sh["y"] * scale,
+               (sh["x"] + sh["w"]) * scale, (sh["y"] + sh["h"]) * scale]
+        kind = sh.get("kind")
+        if kind == "badge":
+            dr.ellipse(box, fill="#" + sh["color"])
+        elif kind == "panel":
+            dr.rounded_rectangle(box, radius=sh.get("radius", 5) * scale,
+                                 fill="#" + sh["color"])
+        else:
+            dr.rectangle(box, fill="#" + sh["color"])
 
     for b in man["boxes"]:
         if b["slide"] != idx:

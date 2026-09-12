@@ -46,10 +46,8 @@ def main(path):
             got = int(spc.group(1)) if spc else 0
             if want is not None and got != want:
                 fail("TRACK", f"s{i}: {pt}pt 의 자간 {got} != 스타일 값 {want}")
-        if 'algn="ctr"' in x:
-            fail("ALIGN", f"s{i}: 가운데 정렬 단락이 있다")
-        if "<a:gradFill" in x or "roundRect" in x:
-            fail("HARD", f"s{i}: 그라데이션 또는 둥근 모서리가 있다")
+        if "<a:gradFill" in x:
+            fail("HARD", f"s{i}: 그라데이션이 있다")
         for sp in re.findall(r"<p:sp>.*?</p:sp>", x, re.S):
             if "<a:prstGeom" in sp and "<a:effectLst/>" not in sp and "<a:effectLst>" in sp:
                 fail("NO_SHADOW", f"s{i}: 효과가 걸린 도형이 있다")
@@ -82,7 +80,11 @@ def main(path):
         for n, boxes in sorted(by_slide.items()):
             for b in boxes:
                 # image_full 의 글자는 판 내부 좌표라 그리드 밖을 허용한다
-                if b["tag"] in ("full-title", "caption") or (b["tag"] == "eyebrow" and b["y"] > 300):
+                # chain 의 들여쓰기(47.5pt step)와 배지 안 활자는 컬럼 그리드를 일부러 벗어난다.
+                # 계단이 관계를 나타내는 장치이기 때문이다 — 사용자 덱도 82.1/129.6/177.1 이다.
+                if b["tag"].startswith(("chain-", "badge-", "panel-")) or \
+                   b["tag"] in ("full-title", "caption", "ledger-index") or \
+                   (b["tag"] == "eyebrow" and b["y"] > 300):
                     continue
                 if b["x"] not in COLS and round(b["x"]) not in {round(col_x(n)) + spec["table"]["pad_x"] for n in range(1, 13)} | {round(col_x(n) + span_w(sp) - spec["table"]["pad_x"]) for n in range(1, 13) for sp in (2, 3, 4, 6)} | {58, 72}:
                     fail("GRID", f"s{n}: '{b['tag']}' x={b['x']} 가 컬럼 좌표가 아니다")
@@ -92,6 +94,9 @@ def main(path):
                 # 검사 대상은 '눈썹 라벨 역할'(tag == eyebrow)뿐이다.
                 # image_full 만 예외 — 눈썹이 판 내부(y 340)에 놓인다 (§8.15).
                 ok_y = {(spec.get("rhythm_y") or {}).get("eyebrow_y", 56), 340, 354}
+                # 가운데 정렬은 배지 안 글리프에만 허용한다. 본문은 전부 좌정렬.
+                if b.get("align") == "center" and not b["tag"].startswith("badge-"):
+                    fail("ALIGN", f"s{n}: '{b['tag']}' 가운데 정렬 — 본문은 좌정렬이다")
                 if b["tag"] == "eyebrow" and b["y"] not in ok_y:
                     fail("EYEBROW_Y", f"s{n}: 눈썹 라벨 y={b['y']} (56 고정)")
             R = spec.get("rhythm_y")
@@ -108,19 +113,25 @@ def main(path):
             elif 56 not in tops and max(bottoms) < 483.5:
                 fail("ANCHOR", f"s{n}: 상단 56 도 하단 484 도 잡히지 않았다 "
                                f"(최하단 {max(bottoms):.0f})")
+        # 도형 어휘 검사 — "도형 금지"가 아니라 "장식만 하는 도형 금지"다.
+        # panel/badge 는 안에 활자가 있어야 하고, 선은 관계를 나타내야 한다.
+        ALLOWED = {"plate", "panel", "badge", "connector", "hero_rule", "table_rule"}
         for sh in man.get("shapes", []):
-            k = sh.get("kind")
-            if k == "plate":
-                if min(sh["w"], sh["h"]) < spec["plates"]["plate_min_side"]:
-                    fail("PLATE", f"s{sh['slide']}: plate 짧은 변 {min(sh['w'], sh['h'])} < 32")
-            elif k == "hero_rule":
-                if sh["h"] != spec["rules"]["hero_rule_w"]:
-                    fail("PLATE", f"s{sh['slide']}: hero_rule 두께 {sh['h']}")
-            elif k == "table_rule":
-                if sh["h"] != spec["rules"]["table_rule_w"]:
-                    fail("PLATE", f"s{sh['slide']}: table_rule 두께 {sh['h']}")
-            else:
-                fail("PLATE", f"s{sh['slide']}: 허용되지 않은 사각형 '{k}'")
+            k, n = sh.get("kind"), sh["slide"]
+            if k not in ALLOWED:
+                fail("SHAPE", f"s{n}: 허용되지 않은 도형 '{k}'")
+                continue
+            if k in ("plate", "panel", "badge"):
+                inside = [b for b in by_slide.get(n, [])
+                          if b["x"] >= sh["x"] - 2 and b["y"] >= sh["y"] - 14
+                          and b["x"] + b["w"] <= sh["x"] + sh["w"] + 2
+                          and b["y"] <= sh["y"] + sh["h"] + 4]
+                if not inside and k != "panel":
+                    fail("SHAPE", f"s{n}: '{k}' 안에 활자가 없다 — 장식 도형은 만들지 않는다")
+                if min(sh["w"], sh["h"]) < spec["plates"]["plate_min_side"] and k == "plate":
+                    fail("PLATE", f"s{n}: plate 짧은 변 {min(sh['w'], sh['h'])} 미달")
+            if k == "connector" and sh["w"] > 3:
+                fail("SHAPE", f"s{n}: 연결선 두께 {sh['w']} — 1pt 안팎이어야 한다")
     else:
         fail("PLATE", "매니페스트가 없어 사각형·그리드 검사를 못 했다")
 

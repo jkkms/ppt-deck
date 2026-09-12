@@ -70,7 +70,7 @@ def main(path):
         for p in re.findall(r"<a:p>.*?</a:p>", x, re.S):
             if "<a:r>" in p and "<a:endParaRPr" not in p:
                 end_missing += 1
-        for prst, why in (("roundRect", "둥근 모서리"), ("<a:gradFill", "그라데이션"),
+        for prst, why in (("<a:gradFill", "그라데이션"),
                           ("<a:effectLst><a:outerShdw", "그림자")):
             if prst in x:
                 warn(f"{os.path.basename(sl)}: {why} 발견 — 이 덱의 설계 규칙에 없는 효과다")

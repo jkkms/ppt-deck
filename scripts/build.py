@@ -176,20 +176,23 @@ def cards(d, s, m, sl):
     BIAS = 0.38      # 남는 높이의 38%만 위에 둔다 — 정중앙보다 살짝 위가 안정적이다
 
     def cell_h(it, w):
-        h = 20 + g.bh(it.get("title", ""), w, "h2")
+        h = d.spec["shapes"]["badge_d_sub"] + 10 + g.bh(it.get("title", ""), w, "h2")
         if it.get("body"):
             h += 8 + g.bh(it["body"], w, "small")
         return h
 
+    SH = d.spec["shapes"]
+
     def cell(it, x, w, y):
-        d.text(s, "micro", x, y, w, 15, str(it.get("index", "")),
-               color="accent", tag="card-index")
+        dd = SH["badge_d_sub"]
+        d.badge(s, x + dd / 2, y + dd / 2, dd, "accent",
+                glyph=str(it.get("index", "")), glyph_color="ground", style="small")
         th = g.bh(it.get("title", ""), w, "h2")
-        d.text(s, "h2", x, y + 20, w, th, it.get("title", ""), tag="card-title")
+        d.text(s, "h2", x, y + dd + 10, w, th, it.get("title", ""), tag="card-title")
         if it.get("body"):
             bh_ = g.bh(it["body"], w, "small")
-            d.text(s, "small", x, y + 20 + th + 8, w, bh_, it["body"],
-                   color="muted", tag="card-body")
+            d.text(s, "small", x, y + SH["badge_d_sub"] + 10 + th + 8, w, bh_,
+                   it["body"], color="muted", tag="card-body")
 
     # 행은 실제 높이로 위에서부터 쌓는다. 남은 높이에 균등 분배하면 흩어져 보인다.
     def place(total):
@@ -209,8 +212,9 @@ def cards(d, s, m, sl):
         for it in items[:3]:
             th = g.bh(it.get("title", ""), span_w(4), "h2")
             bh_ = g.bh(it.get("body", ""), span_w(6), "body") if it.get("body") else 0
-            d.text(s, "h2", col_x(1), y, span_w(1), th, str(it.get("index", "")),
-                   color="accent", tag="ledger-index")
+            SH = d.spec["shapes"]
+            d.badge(s, col_x(1) + SH["badge_d"] / 2, y + 13, SH["badge_d"], "accent",
+                    glyph=str(it.get("index", "")), glyph_color="ground", style="small")
             d.text(s, "h2", col_x(2), y, span_w(4), th, it.get("title", ""),
                    tag="ledger-title")
             if bh_:
@@ -278,6 +282,45 @@ def quote(d, s, m, sl):
     if sl.get("note"):
         d.text(s, "small", col_x(2), y_note, span_w(5), 18, sl["note"],
                color="muted", tag="quote-note")
+
+
+def chain(d, s, m, sl):
+    """전제 패널 + 꼬리를 무는 질문. 사용자 덱 12쪽의 구조를 좌표까지 그대로 옮긴 것이다.
+    패널 = 묶음, 배지 = 행의 시작점, 연결선 = 파고드는 관계. 셋 다 장식이 아니다."""
+    g = L(d)
+    SH = d.spec["shapes"]
+    g.head(s, sl, span=12)
+    y = g.top
+    if sl.get("lead"):
+        lh = g.bh(sl["lead"], span_w(10), "lead")
+        d.text(s, "lead", col_x(1), y, span_w(10), lh, sl["lead"], color="muted", tag="lead")
+        y += lh + 30
+
+    bx = col_x(1) + 40                      # 배지 중심 x (실측 98)
+    if sl.get("panel"):
+        ph = SH["panel_h"]
+        d.panel(s, col_x(1), y, span_w(12), ph, radius=SH["panel_radius"])
+        d.badge(s, bx, y + ph / 2, SH["badge_d"], "accent",
+                glyph=sl.get("panel_mark", "\u21b3"), glyph_color="ground", style="h2")
+        d.text(s, "body", col_x(1) + 73, y + ph / 2 - 11, span_w(12) - 90, 22,
+               sl["panel"], font_key="head", tag="panel-text")
+        y += ph
+
+    steps = sl.get("steps") or []
+    dsub, ind, step = SH["badge_d_sub"], SH["chain_indent"], SH["chain_step"]
+    if len(steps) > 4:
+        warn(f"slide {d._slide_i}: chain 단계 {len(steps)}개 — 4개까지만 들여쓰기가 화면에 든다")
+    for i, tx in enumerate(steps[:4]):
+        cx = bx + i * ind
+        cy = y + 39 + i * step
+        d.connector(s, cx, (y + 4.6) if i == 0 else (cy - step + dsub / 2 + 5),
+                    (cy - dsub / 2) - ((y + 4.6) if i == 0 else (cy - step + dsub / 2 + 5)))
+        d.badge(s, cx, cy, dsub, "accent_soft", glyph="\u21b3",
+                glyph_color="ground", style="micro")
+        d.text(s, "small", cx + 17, cy - 9, 22, 18, str(i + 1),
+               color="accent", font_key="head", tag="chain-num")
+        d.text(s, "body", cx + 43, cy - 11, content_r() - (cx + 43), 22, str(tx),
+               font_key="head", tag="chain-text")
 
 
 def table(d, s, m, sl):
@@ -351,7 +394,7 @@ def image_full(d, s, m, sl):
                color="muted", tag="caption")
 
 
-LAYOUTS = {"cover": cover, "closing": closing, "section": section,
+LAYOUTS = {"cover": cover, "closing": closing, "section": section, "chain": chain,
            "statement": statement, "two_col": two_col, "cards": cards,
            "data": data, "quote": quote, "table": table,
            "image_split": image_split, "image_full": image_full}

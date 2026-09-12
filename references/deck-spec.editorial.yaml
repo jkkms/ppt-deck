@@ -109,6 +109,16 @@ cards:
   cell_step:     161      # quad · dense
   gutter_v:      32
 
+shapes:                 # house 프로파일과 이름을 맞추기 위한 값. editorial 은 도형을 거의 쓰지 않는다
+  badge_d:      32
+  badge_d_sub:  24
+  panel_h:      61
+  panel_radius: 0
+  panel_pad_x:  24
+  chain_indent: 47.5
+  chain_step:   53
+  connector_w:  1
+
 # --- table ------------------------------------------------------------------
 table:
   header_h: 34

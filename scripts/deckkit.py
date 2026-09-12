@@ -123,7 +123,10 @@ def derive(pal: dict, cfg: dict) -> dict:
                "ink2":  mix(f, g, c["tone_ink2"]),
                "muted": mix(f, g, c["tone_muted"]),
                "faint": mix(f, g, c["tone_faint"]),
-               "hairline": mix(f, g, c["hairline_mix"])}
+               "hairline": mix(f, g, c["hairline_mix"]),
+               # 실측 — 패널 채움 EDF1EC = accent 를 ground 쪽으로 0.94, 보조 배지 6E9C7F = 0.37
+               "accent_tint": mix(pal["accent"], g, c.get("accent_tint_mix", 0.94)),
+               "accent_soft": mix(pal["accent"], g, c.get("accent_soft_mix", 0.37))}
         assert contrast(out["ink2"], g) >= c["min_ratio_body"], \
             f"ink2 vs ground {contrast(out['ink2'], g):.2f}"
         assert contrast(out["muted"], g) >= c["min_ratio_caption"], \
@@ -135,7 +138,9 @@ def derive(pal: dict, cfg: dict) -> dict:
     assert contrast(muted, g) >= c["muted_min_ratio_ground"]
     assert contrast(muted, f) >= c["muted_min_ratio_figure"]
     return {"ground": g, "figure": f, "accent": pal["accent"],
-            "ink2": f, "muted": muted, "faint": muted, "hairline": hairline}
+            "ink2": f, "muted": muted, "faint": muted, "hairline": hairline,
+            "accent_tint": mix(pal["accent"], g, 0.94),
+            "accent_soft": mix(pal["accent"], g, 0.37)}
 
 
 # ---------------------------------------------------------------- §6 줄수 계산
@@ -208,7 +213,7 @@ def assert_plate_ok(w: float, h: float, has_text: bool, kind: str, spec=None):
     if kind == "plate":
         assert min(w, h) >= lim, f"plate 짧은 변 {min(w, h)} < {lim}"
         assert has_text, "활자를 담지 않는 채움 사각형은 생성 금지"
-    elif kind in ("hero_rule", "table_rule"):
+    elif kind in ("hero_rule", "table_rule", "connector"):
         pass                      # 두께는 스펙의 rules 그룹이 강제한다
     else:
         raise ValueError(f"허용되지 않은 사각형 종류: {kind}")
@@ -412,6 +417,41 @@ class Deck:
         self.shapes.append(dict(slide=self._slide_i, x=x, y=y, w=w, h=h,
                                 color=self.c(color), kind=kind))
         return sh
+
+    def panel(self, s, x, y, w, h, color="accent_tint", radius=5.0):
+        """살짝 둥근 채움 패널. 실측 — 반경 5pt, 채움은 accent 를 ground 쪽으로 0.94 섞은 톤.
+        장식이 아니라 한 덩어리를 묶는 그릇이므로 반드시 안에 활자가 들어간다."""
+        sh = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Pt(x), Pt(y), Pt(w), Pt(h))
+        try:
+            sh.adjustments[0] = min(0.5, radius / max(1e-6, min(w, h)))
+        except Exception:
+            pass
+        sh.fill.solid(); sh.fill.fore_color.rgb = RGBColor.from_string(self.c(color))
+        sh.line.fill.background(); sh.shadow.inherit = False
+        sh.text_frame.text = ""
+        self.shapes.append(dict(slide=self._slide_i, x=x, y=y, w=w, h=h,
+                                color=self.c(color), kind="panel", radius=radius))
+        return sh
+
+    def badge(self, s, cx, cy, d=32.0, color="accent", glyph="", glyph_color="ground",
+              style="small"):
+        """원형 배지. 실측 지름 32(주) / 24(보조). 번호·기호를 담아 행의 시작점을 잡는다."""
+        x, y = cx - d / 2, cy - d / 2
+        sh = s.shapes.add_shape(MSO_SHAPE.OVAL, Pt(x), Pt(y), Pt(d), Pt(d))
+        sh.fill.solid(); sh.fill.fore_color.rgb = RGBColor.from_string(self.c(color))
+        sh.line.fill.background(); sh.shadow.inherit = False
+        sh.text_frame.text = ""
+        self.shapes.append(dict(slide=self._slide_i, x=x, y=y, w=d, h=d,
+                                color=self.c(color), kind="badge"))
+        if glyph:
+            st = self.spec["styles"][style]
+            self.text(s, style, x, cy - st["size"] * 0.72, d, st["size"] * 1.45,
+                      str(glyph), color=glyph_color, align="center", tag="badge-glyph")
+        return sh
+
+    def connector(self, s, x, y, h, w=1.0, color="accent_soft"):
+        """배지와 배지를 잇는 세로선. 관계를 나타내는 선이라 장식선 금지에 걸리지 않는다."""
+        return self._rect(s, x - w / 2, y, w, h, color, "connector", True)
 
     def plate(self, s, x, y, w, h, color="figure"):
         """채움 판. 짧은 변 >= 32 이고 반드시 활자를 담을 때만 허용된다."""
