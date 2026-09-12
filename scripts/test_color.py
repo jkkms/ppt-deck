@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""색 계산 단위 테스트 — 명세서 §2 토큰 표의 기대값을 고정한다.
+"""색 계산 단위 테스트 — Claude Design 명세서 §5.2 기대값을 고정한다.
+
+    editorial 프로파일(2단 muted 모델) 전용이다. house 프로파일은 4단 톤 램프라
+    기대값이 다르며, 그쪽 검증은 lint_deck.py 의 CONTRAST 가 맡는다.
 
 이 값이 안 맞으면 구현이 틀린 것이다. 기대값을 고치지 마라.
 """
@@ -17,7 +20,8 @@ GROUND_MIN, FIGURE_MIN = 4.5, 1.7
 
 
 def main():
-    spec = load_spec()
+    spec = load_spec(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                  "..", "references", "deck-spec.editorial.yaml"))
     bad = 0
     for name, (hx, cg, cf, hl) in EXPECT.items():
         pal = spec["palettes"][name]
