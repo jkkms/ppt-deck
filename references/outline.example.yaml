@@ -24,7 +24,7 @@ slides:
   - layout: statement
     eyebrow: "02 / 논점"
     runner: "직전 4분기 실측 기준"
-    text: "문제는 예측이 아니라\n입력 시점이다"
+    text: "문제는 예측이 아니라 입력 시점이다"
 
   # 06 two_col 가득 · letterpress
   - layout: two_col
@@ -48,7 +48,7 @@ slides:
   # 05 statement 가득 · graphite
   - layout: statement
     eyebrow: "02 / 논점"
-    text: "재고는 창고의\n문제가 아니라\n주문서의 문제다"
+    text: "재고는 창고의 문제가 아니라 주문서의 문제다"
     body: "발주 확정과 판매 반영 사이의 지연이 예측 오차의 절반을 만든다. 모델을 바꾸기 전에 이 구간을 먼저 줄인다."
 
   # 09 cards ledger (3) · blueprint

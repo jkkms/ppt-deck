@@ -47,6 +47,7 @@ class L:
         self.block = r.get("block_y", r["content_y"])   # 도형 블록 시작 (실측 176)
         self.h = self.bottom - self.top
         self.gap = d.spec["anchors"]["gap_block"]
+        self.title_bottom = self.title_y
         self.d = d
 
     def balance(self, text, w, style):
@@ -97,6 +98,7 @@ class L:
             h = block_h(t, span_w(span), st, d.spec["fonts"][st["font"]])
             d.text(s, title_style, col_x(1), self.title_y, span_w(span), h,
                    t.split("\n"), tag="title")
+            self.title_bottom = self.title_y + h
 
     def bh(self, text, w, style):
         st = self.d.spec["styles"][style]
@@ -160,13 +162,13 @@ def statement(d, s, m, sl):
     g = L(d)
     g.head(s, sl, span=9)
     text = _t(sl, "text")
-    th = g.bh(text, span_w(10), "display")
+    th = g.bh(text, span_w(11), "cover")
     body = _paras(sl, "body")
     bh_ = g.bh("\n".join(body), span_w(7), "lead") if body else 0
     total = th + (g.gap + bh_ if bh_ else 0)
     y = resolve_y(total, d.spec, top=g.top)
     acc = sl.get("accent_lines") or []
-    d.text(s, "display", col_x(1), y, span_w(10), th, text.split("\n"),
+    d.text(s, "cover", col_x(1), y, span_w(11), th, text.split("\n"),
            accent_paras=tuple(acc), tag="statement")
     if bh_:
         d.text(s, "lead", col_x(1), y + th + g.gap, span_w(7), bh_, body,
@@ -180,32 +182,36 @@ def two_col(d, s, m, sl):
     lead = _t(sl, "lead")
     body = _paras(sl, "bullets", "body")
     lw, rw = span_w(4), span_w(7)
+    # 분량이 적을 때 13pt 로 두면 화면이 비어 보인다. 한 단계 키운다.
+    bstyle = "lead" if sum(len(b) for b in body) < 190 else "body"
     lh = g.bh(lead, lw, "lead") if lead else 0
-    rh = g.bh("\n".join(body), rw, "body") if body else 0
+    rh = g.bh("\n".join(body), rw, bstyle) if body else 0
     sub, subb = _t(sl, "subhead"), _t(sl, "subbody")
     sh_ = g.bh(sub, rw, "h2") if sub else 0
-    sbh = g.bh(subb, rw, "body") if subb else 0
+    sbh = g.bh(subb, rw, bstyle) if subb else 0
     right_total = rh + (g.gap + sh_ if sh_ else 0) + (8 + sbh if sbh else 0)
     # 좌·우 컬럼을 같은 기준선에 세우고, 남는 높이의 38%만 위에 둔다
     # 왼쪽에 리드가 없으면 2단이 아니다 — 빈 컬럼을 남기지 말고 한 단으로 넓게 쓴다
     if not lead:
         rw = span_w(9)
-        rh = g.bh("\n".join(body), rw, "body") if body else 0
+        rh = g.bh("\n".join(body), rw, bstyle) if body else 0
         sh_ = g.bh(sub, rw, "h2") if sub else 0
-        sbh = g.bh(subb, rw, "body") if subb else 0
+        sbh = g.bh(subb, rw, bstyle) if subb else 0
         right_total = rh + (g.gap + sh_ if sh_ else 0) + (8 + sbh if sbh else 0)
         col = 1
     else:
         col = 6
-    y = resolve_y(max(lh, right_total), d.spec, top=g.block)
+    # 리드는 제목 바로 아래(content_y)에 붙인다. 본문과 같은 줄에 두면 허공에 뜬다.
     if lh:
-        d.text(s, "lead", col_x(1), y, lw, lh, lead, color="muted", tag="lead")
+        d.text(s, "lead", col_x(1), max(g.top, g.title_bottom + 14), lw, lh,
+               lead, color="muted", tag="lead")
+    y = resolve_y(right_total, d.spec, top=g.block)
     if rh:
-        d.text(s, "body", col_x(col), y, rw, rh, body, color="ink2", tag="body")
+        d.text(s, bstyle, col_x(col), y, rw, rh, body, color="figure", tag="body")
     if sh_:
         d.text(s, "h2", col_x(col), y + rh + g.gap, rw, sh_, sub, tag="subhead")
         if sbh:
-            d.text(s, "body", col_x(col), y + rh + g.gap + sh_ + 8, rw, sbh, subb,
+            d.text(s, bstyle, col_x(col), y + rh + g.gap + sh_ + 8, rw, sbh, subb,
                    color="ink2", tag="subbody")
 
 
@@ -388,16 +394,22 @@ def panel_list(d, s, m, sl):
 
     px, pw = col_x(1), span_w(12)
     tx = px + SH["panel_text_x"]
-    for it in (sl.get("items") or [])[:4]:
-        lead_h = g.bh(it.get("text", ""), pw - SH["panel_text_x"] - SH["panel_pad_x"], "lead")
+    items_ = (sl.get("items") or [])[:4]
+    tw_ = pw - SH["panel_text_x"] - SH["panel_pad_x"]
+    # 패널 높이를 가장 큰 것에 맞춘다 — 높이가 제각각이면 목록이 흐트러져 보인다
+    ph = max(SH["panel_pad_y"] + g.bh(it.get("text", ""), tw_, "lead") + 8
+             + len(it.get("subs") or []) * SH["subrow_step"] + SH["panel_pad_y"]
+             for it in items_) if items_ else 0
+    for it in items_:
+        lead_h = g.bh(it.get("text", ""), tw_, "lead")
         subs = it.get("subs") or []
-        ph = SH["panel_pad_y"] + lead_h + 8 + len(subs) * SH["subrow_step"] + SH["panel_pad_y"]
         d.panel(s, px, y, pw, ph, radius=SH["panel_radius"])
-        d.chip(s, px + SH["panel_pad_x"] + 0.5, y + SH["panel_pad_y"],
+        # 칩을 주문장 첫 줄의 세로 중앙에 맞춘다
+        line_h = d.spec["styles"]["lead"]["size"] * d.spec["styles"]["lead"]["leading"]
+        d.chip(s, px + SH["panel_pad_x"], y + SH["panel_pad_y"] + (line_h - SH["chip_h"]) / 2,
                SH["chip_w"], SH["chip_h"], str(it.get("index", "")),
                color="accent", text_color="ground", style="small")
-        d.text(s, "lead", tx, y + SH["panel_pad_y"] + 1,
-               pw - SH["panel_text_x"] - SH["panel_pad_x"], lead_h,
+        d.text(s, "lead", tx, y + SH["panel_pad_y"], tw_, lead_h,
                it.get("text", ""), font_key="head", tag="panel-text")
         sy = y + SH["panel_pad_y"] + lead_h + 8
         for k, sub in enumerate(subs):
@@ -563,11 +575,13 @@ def compare(d, s, m, sl):
         tc = "ground" if good else "figure"
         bc = "ground" if good else "ink2"
         th = g.bh(it.get("title", ""), tw, "h2")
-        d.text(s, "h2", tx, y + 50, tw, th, it.get("title", ""), color=tc,
+        bh_ = g.bh(it["body"], tw, "body") if it.get("body") else 0
+        blk = th + (14 + bh_ if bh_ else 0)
+        ty = y + (ph - blk) / 2                 # 제목+본문을 패널 세로 중앙에
+        d.text(s, "h2", tx, ty, tw, th, it.get("title", ""), color=tc,
                tag="compare-title")
-        if it.get("body"):
-            bh_ = g.bh(it["body"], tw, "body")
-            d.text(s, "body", tx, y + 50 + th + 12, tw, bh_, it["body"],
+        if bh_:
+            d.text(s, "body", tx, ty + th + 14, tw, bh_, it["body"],
                    color=bc, tag="compare-body")
 
 
@@ -591,12 +605,15 @@ def nest(d, s, m, sl):
         y = oy + k * 42
         d.oval(s, x, y, w, h, color=tones[k])
         # 가장 안쪽 고리는 라벨을 세로 중앙에 — 바깥 고리는 위쪽에 얹어 겹침을 피한다
-        ly = y + (h - 24) / 2 if k == 2 else y + h * 0.10
-        d.text(s, "lead", x, ly, w, 24, str(rings[k].get("name", "")),
+        ly = y + (h - 26) / 2 if k == 2 else y + 20
+        d.text(s, "lead", x, ly, w, 26, str(rings[k].get("name", "")),
                align="center", color="ground" if k == 2 else "figure", tag="ring-label")
 
     rx, rw = col_x(7), span_w(6)
-    pyy, phh = g.block, 80
+    phh = 80
+    stack = 3 * phh + 2 * 9 + (12 + 40 if sl.get("conclusion") else 0)
+    diag_h = oy + 2 * 42 + oh * 0.39 - g.block          # 왼쪽 그림의 실제 높이
+    pyy = g.block + max(0.0, (max(diag_h, oh) - stack) / 2)
     for k, r in enumerate(rings):
         y = pyy + k * (phh + 9)
         d.panel(s, rx, y, rw, phh, color="accent_tint", radius=SH["panel_radius"])
@@ -625,19 +642,22 @@ def table(d, s, m, sl):
         warn(f"slide {d._slide_i}: 표 {len(rows)}행 > 한도 {lim}행 — 슬라이드를 나눠라")
     rows = rows[:lim]
     cols, pad = table_columns(d, n), T["pad_x"]
-    hy = g.block
+    hy = T.get("header_y", g.block)
     avail = g.bottom - hy - T["header_h"] - (26 if sl.get("footnote") else 0)
     row_h = min(52.0, max(T["row_h"], avail / max(1, len(rows))))
     d.plate(s, col_x(1), hy, span_w(12), T["header_h"], color="figure")
     for (x, w, align, tx), h in zip(cols, heads[:n]):
-        d.text(s, "small", tx if align == "left" else x, hy + 7, w - pad, 18,
-               str(h), color="ground", align=align, tag="th")
+        # 머리 라벨도 판 세로 중앙에
+        d.text(s, "small", tx if align == "left" else x, hy, w - pad, T["header_h"],
+               str(h), color="ground", align=align, anchor="middle",
+               exact_center=True, tag="th")
     for i, row in enumerate(rows):
         y = hy + T["header_h"] + i * row_h
         for (x, w, align, tx), cell in zip(cols, row[:n]):
-            d.text(s, "body", tx if align == "left" else x,
-                   y + (row_h - 20) / 2, w - pad, 20,
-                   str(cell), align=align, color="figure" if align == "left" else "ink2",
+            # 셀 글씨를 행 높이 안에서 세로 중앙에 — 행마다 눈높이가 흔들리지 않게
+            d.text(s, "body", tx if align == "left" else x, y, w - pad, row_h,
+                   str(cell), align=align, anchor="middle", exact_center=True,
+                   color="figure" if align == "left" else "ink2",
                    font_key="head" if align == "right" else None, tag="td")
         if i < len(rows) - 1:
             d.table_rule(s, col_x(1), y + row_h - 0.5, span_w(12))
