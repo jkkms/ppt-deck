@@ -1,6 +1,6 @@
 ---
 name: ppt-deck
-version: "5.0.0"
+version: "5.1.0"
 description: AI가 찍어낸 티가 나지 않는 .pptx 발표자료를 만드는 스킬. 디자인 토큰(색 3개·폰트·타입스케일·그리드)을 먼저 확정하고 레이아웃 8종(표지/섹션/스테이트먼트/2단/데이터/인용/표/클로징)을 리듬으로 배치해, python-pptx로 좌표 단위까지 통제된 한글 슬라이드를 생성한다. 기본 테마색·Calibri·그림자·둥근 카드·기계적 불릿 같은 "AI PPT의 지문"을 린터가 사전 차단하고, 빌드 후 PNG로 렌더해 넘침·정렬을 눈으로 검수한다. 트리거 — "PPT 만들어줘", "발표자료 만들어줘", "슬라이드 만들어", "pptx 만들어", "PPT 티 안 나게", "AI 티 안 나는 발표자료", "덱 만들어줘", "강의자료 슬라이드", "제안서 PPT", "/ppt-deck". 후속 작업 — "팔레트 바꿔줘", "이 슬라이드만 고쳐", "발표용을 읽기용으로", "슬라이드 추가" 도 모두 이 스킬. 기존 .pptx에서 텍스트만 추출하거나 남의 템플릿을 그대로 채우는 작업은 anthropic-skills:pptx 쪽이 맞다.
 ---
 
@@ -24,7 +24,10 @@ PY=${CLAUDE_SKILL_DIR}/.venv/bin/python      # python-pptx · pyyaml · pymupdf 
 | `scripts/preview.py outline.yaml --slides 1,5` | 팔레트 3종 비교 PNG |
 | `scripts/svgpreview.py out/deck.manifest.json --png --sheet` | **검수 1순위.** 매니페스트 → SVG/PNG. 외부 앱·권한 없이 실제 Pretendard 파일로 그린다 |
 | `scripts/validate.py out/deck.pptx` | 파일 무결성 — XML·관계·콘텐츠타입·글꼴(latin/ea/cs)·endParaRPr·테마 |
-| `scripts/metrics.py` | 설치된 Pretendard에서 실제 글리프 폭 추출 (최초 1회 또는 폰트 교체 시) |
+| `scripts/metrics.py` | 설치된 Pretendard·Consolas에서 실제 글리프 폭 추출 (최초 1회) |
+| `scripts/humanize_io.py extract\|apply` | 아웃라인 ↔ 윤문 텍스트 왕복 |
+| `scripts/reconcile.py diff\|deploy` | 배포본 대조 · 덮어쓰기 가드 |
+| `scripts/verify_centering.py` | 도형 안 글자 중앙 정렬 전수 측정 |
 | `scripts/render.py out/deck.pptx` | LibreOffice 실제 렌더. 없으면 실패한다(정상) |
 
 `references/deck-spec.yaml`이 디자인 토큰 단일 원천, `references/outline.example.yaml`이 아웃라인 문법의 레퍼런스다.
@@ -254,7 +257,48 @@ $PY ${CLAUDE_SKILL_DIR}/scripts/validate.py out/deck.pptx
 
 `render.py`(LibreOffice)는 진짜 렌더가 필요할 때만. `--allow-powerpoint`는 **앱이 뜨고 macOS 자동화 권한을 반복 요구하므로 사용자가 명시적으로 허락했을 때만** 쓴다.
 
+## Phase 4.5. 문구 윤문 (사용자 원칙 §3)
+
+슬라이드에 넣기 **전에** 돌린다. 빌드 후가 아니라 아웃라인 단계다.
+
+```
+$PY ${CLAUDE_SKILL_DIR}/scripts/humanize_io.py extract outline.yaml -o copy.txt
+```
+
+이러면 `copy.txt` 와 대응표(`copy.txt.map.json`)가 나오고, **구조 계약 전문이 출력된다.**
+그 계약을 프롬프트에 **그대로 넣어** humanize-korean 을 standard 경로로 돌린다.
+계약을 빼면 산문 규칙이 적용돼 줄을 합쳐 버리고, 그러면 되돌려 넣을 수 없다.
+
+```
+$PY ${CLAUDE_SKILL_DIR}/scripts/humanize_io.py apply outline.yaml copy.txt
+```
+
+- 줄 수가 다르면 **거부한다.** 계약이 깨졌다는 뜻이므로 다시 윤문한다
+- 원본 YAML 을 제자리에서 고치므로 주석·서식이 보존된다
+- 눈썹·러너·시기는 뽑지 않는다 — 구조 라벨이고, `" / "` 가 줄바꿈 표시와 겹친다
+- 숫자만 있는 값(`value`)과 코드 블록도 뽑지 않는다
+- **결과를 그대로 받지 마라.** 사용자가 지정한 문구가 있으면 그쪽이 우선이다
+
 ## Phase 5. 인도
+
+### 0원칙 — 덮어쓰기 직전마다 확인한다
+
+사용자가 배포본을 직접 고쳤을 수 있다. 세션 시작 때 한 번으로는 못 막는다.
+**쓰기 직전마다** 확인한다.
+
+```
+$PY ${CLAUDE_SKILL_DIR}/scripts/reconcile.py deploy out/deck.pptx <배포 경로>
+```
+
+- 배포본이 마지막 배포 이후 바뀌었으면 **거부하고 차이를 보여 준다.** 그 차이가 사용자의 수정이다
+- 되돌리지 마라. 아웃라인·빌더에 **영구 반영**한 뒤 다시 빌드해서 배포한다
+- 의도가 불분명한 수정은 **물어본다**
+- 기준 덤프가 없으면 거부한다. 배포본을 먼저 검토하고 `--first` 로 기준을 세운다
+
+**md5 로 판단하지 마라.** 같은 아웃라인을 두 번 빌드해도 md5 는 달라진다(타임스탬프).
+실측으로 확인했다 — md5 는 다른데 도형 덤프는 완전히 같았다. 기준은 도형 단위 대조다.
+
+
 
 `out/deck.pptx`와 검수용 PNG 경로를 알려준다. 함께 보고할 것:
 

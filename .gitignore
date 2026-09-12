@@ -5,3 +5,4 @@ out/
 preview/
 *.manifest.json
 .DS_Store
+.baselines/
