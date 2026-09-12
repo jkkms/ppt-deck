@@ -1,6 +1,6 @@
 ---
 name: ppt-deck
-version: "1.2.0"
+version: "2.0.0"
 description: AI가 찍어낸 티가 나지 않는 .pptx 발표자료를 만드는 스킬. 디자인 토큰(색 3개·폰트·타입스케일·그리드)을 먼저 확정하고 레이아웃 8종(표지/섹션/스테이트먼트/2단/데이터/인용/표/클로징)을 리듬으로 배치해, python-pptx로 좌표 단위까지 통제된 한글 슬라이드를 생성한다. 기본 테마색·Calibri·그림자·둥근 카드·기계적 불릿 같은 "AI PPT의 지문"을 린터가 사전 차단하고, 빌드 후 PNG로 렌더해 넘침·정렬을 눈으로 검수한다. 트리거 — "PPT 만들어줘", "발표자료 만들어줘", "슬라이드 만들어", "pptx 만들어", "PPT 티 안 나게", "AI 티 안 나는 발표자료", "덱 만들어줘", "강의자료 슬라이드", "제안서 PPT", "/ppt-deck". 후속 작업 — "팔레트 바꿔줘", "이 슬라이드만 고쳐", "발표용을 읽기용으로", "슬라이드 추가" 도 모두 이 스킬. 기존 .pptx에서 텍스트만 추출하거나 남의 템플릿을 그대로 채우는 작업은 anthropic-skills:pptx 쪽이 맞다.
 ---
 
@@ -16,7 +16,10 @@ PY=${CLAUDE_SKILL_DIR}/.venv/bin/python      # python-pptx · pyyaml · pymupdf 
 
 | 스크립트 | 하는 일 |
 | --- | --- |
-| `scripts/lint.py outline.yaml` | 내용·리듬의 AI 티 검사. ERROR 있으면 exit 1 |
+| `scripts/lint.py outline.yaml` | 내용·리듬의 AI 티 검사 |
+| `scripts/lint_deck.py out/deck.pptx` | **§13 구조 검사 12종** — 스케일·자간·그리드·정렬·사각형·대비 |
+| `scripts/verify_coords.py out/deck.manifest.json` | 명세서 §3 좌표 표와 0pt 대조 |
+| `scripts/test_color.py` | §5.2 색 기대값(hex 8 + 대비 8) 고정 |
 | `scripts/build.py outline.yaml -o out/deck.pptx` | 빌드 + 기하 자기검증(넘침·이탈·불릿 줄바꿈) |
 | `scripts/preview.py outline.yaml --slides 1,5` | 팔레트 3종 비교 PNG |
 | `scripts/svgpreview.py out/deck.manifest.json --png --sheet` | **검수 1순위.** 매니페스트 → SVG/PNG. 외부 앱·권한 없이 실제 Pretendard 파일로 그린다 |
@@ -77,13 +80,19 @@ ppt-deck v1.0 — 밀도: {speaker|reading} / 팔레트: {name} / 예상 {N}장
 
 | layout | 쓰는 자리 | 주요 키 |
 | --- | --- | --- |
-| `cover` | 1장 | (meta에서 자동) `title` `subtitle` |
-| `section` | 장 구분. accent 전면 반전 | `number` `label` `title` |
-| `statement` | 주장 한 줄. 호흡을 끊는다 | `text` `note` |
-| `two_col` | 본문 주력. 비대칭 4:7 | `title` `lead` `bullets`\|`body` |
-| `cards` | 번호 카드 2~6개. 3열(또는 2열) 그리드 | `label` `title` `items[{number,title,body,image}]` |
-| `image_split` | 반출혈 이미지 + 텍스트 | `image` `side:left\|right` `label` `title` `lead` `bullets` `caption` |
-| `image_full` | 위는 전출혈 이미지, 아래는 바탕색 판 | `image` `label` `title` `caption` |
+| `cover` | 표지. 하단 정렬 + 우상단 연도 | `eyebrow` `year` `title` `meta` |
+| `closing` | 마지막. 반전 필드 + 정보 원장 3행 | `eyebrow` `ledger[{label,value}]` `title`(1줄) |
+| `section` | 장 구분. 반전 필드, 상하 대립 | `number`(2자리) `runner` `title` |
+| `statement` | 주장. 적음/가득 두 상태 | `text` `accent_lines` `body` |
+| `two_col` | 본문 주력. 비대칭 4:7 | `title` `lead` `bullets`(산문) `subhead` `subbody` |
+| `cards` | **항목 수가 구성을 결정** — 2 pair / 3 ledger / 4 quad / 5–6 dense | `items[{index,title,body}]` |
+| `data` | 히어로 1 + 종속 3행 | `items[{value,unit,caption}]` |
+| `quote` | 인용. 항상 하단, col1 통째 비움 | `text` `source` `note` |
+| `table` | 2~5열. 수치열 우정렬 | `headers` `rows` `footnote` |
+| `image_split` | 반출혈 이미지(우측 고정) | `image` `title` `bullets` |
+| `image_full` | 전출혈 + ground 판 | `image` `title` `caption` |
+
+**모드를 직접 지정하는 옵션은 없다.** `cards`는 항목 수만으로 결정된다(2~6개). 1개는 `statement`/`data`, 7개 이상은 슬라이드를 쪼갠다.
 
 `two_col`의 `lead`는 장식이 아니다. lead 없이 불릿이 2개 이하면 왼쪽 컬럼에 질량이 없어 화면이 오른쪽으로 쏠린다. lead를 넣거나 `statement`로 바꿔라 (린터가 `BALANCE`로 잡는다).
 | `data` | 숫자 1~3개. **첫 항목이 히어로**, 나머지는 우측에 작게 종속 | `title` `items[{value,unit,caption}]` |

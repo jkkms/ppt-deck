@@ -28,63 +28,161 @@ EMOJI = re.compile(
 )
 
 
-# ---------------------------------------------------------------- spec / color
+# ---------------------------------------------------------------- spec
 def load_spec(path: str | None = None) -> dict:
     with open(path or SPEC_PATH, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
-def mix(a: str, b: str, t: float) -> str:
-    """a를 b쪽으로 t만큼 섞는다. muted 색을 팔레트에서 파생시키기 위한 것."""
-    ai = [int(a[i:i + 2], 16) for i in (0, 2, 4)]
-    bi = [int(b[i:i + 2], 16) for i in (0, 2, 4)]
-    return "".join(f"{round(x + (y - x) * t):02X}" for x, y in zip(ai, bi))
+# ---------------------------------------------------------------- §2 좌표 체계
+GRID_X0, GRID_STEP, COL_W, GUTTER = 72, 70, 46, 24
+CANVAS_W, CANVAS_H = 960, 540
+CONTENT_R = 888                      # col_x(n) + span_w(s) 가 이걸 넘으면 그리드 밖
 
 
-@dataclass
-class Palette:
-    ground: str
-    figure: str
-    accent: str
-    muted: str = ""
-
-    @classmethod
-    def build(cls, spec, name=None):
-        name = name or spec["active_palette"]
-        p = spec["palettes"][name]
-        return cls(p["ground"], p["figure"], p["accent"],
-                   mix(p["figure"], p["ground"], spec["muted_mix"]))
+def col_x(n: int) -> float:
+    """1-based 컬럼 인덱스 -> x(pt). col1=72, col6=422, col12=842"""
+    assert 1 <= n <= 12, f"컬럼 인덱스 {n} 범위 밖"
+    return GRID_X0 + (n - 1) * GRID_STEP
 
 
-@dataclass
-class Grid:
-    margin_x: int; margin_top: int; margin_bottom: int
-    columns: int; col_w: int; gutter: int
-    width: int; height: int
+def span_w(s: int) -> float:
+    """스팬 -> 폭(pt). span1=46, span4=256, span7=466, span12=816"""
+    assert 1 <= s <= 12, f"스팬 {s} 범위 밖"
+    return GRID_STEP * s - GUTTER
 
-    @classmethod
-    def build(cls, spec):
-        g, c = spec["grid"], spec["canvas"]
-        return cls(g["margin_x"], g["margin_top"], g["margin_bottom"],
-                   g["columns"], g["col_w"], g["gutter"],
-                   c["width_pt"], c["height_pt"])
 
-    @property
-    def step(self): return self.col_w + self.gutter
-    @property
-    def content_w(self): return self.width - 2 * self.margin_x
-    @property
-    def right(self): return self.width - self.margin_x
-    @property
-    def bottom(self): return self.height - self.margin_bottom
+# ---------------------------------------------------------------- §5 색 계산
+def _hex_to_rgb(h: str):
+    h = h.lstrip("#")
+    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
 
-    def x(self, col: int) -> float:
-        """컬럼 인덱스(0-based)의 왼쪽 좌표."""
-        return self.margin_x + col * self.step
 
-    def w(self, span: int) -> float:
-        """span개 컬럼의 폭(사이 거터 포함)."""
-        return span * self.col_w + (span - 1) * self.gutter
+def _rgb_to_hex(r: float, g: float, b: float) -> str:
+    return "{:02X}{:02X}{:02X}".format(
+        *(max(0, min(255, int(round(v)))) for v in (r, g, b)))
+
+
+def _rel_luminance(h: str) -> float:
+    """WCAG 상대휘도."""
+    out = []
+    for c in _hex_to_rgb(h):
+        s_ = c / 255.0
+        out.append(s_ / 12.92 if s_ <= 0.04045 else ((s_ + 0.055) / 1.055) ** 2.4)
+    r, g, b = out
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast(h1: str, h2: str) -> float:
+    l1, l2 = _rel_luminance(h1), _rel_luminance(h2)
+    lo, hi = min(l1, l2), max(l1, l2)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def mix(figure: str, ground: str, t: float) -> str:
+    """figure를 ground 쪽으로 t 비율 섞는다. sRGB 선형 보간."""
+    f, g = _hex_to_rgb(figure), _hex_to_rgb(ground)
+    return _rgb_to_hex(*(f[i] * (1 - t) + g[i] * t for i in range(3)))
+
+
+def is_dark_ground(pal: dict) -> bool:
+    """figure가 ground보다 밝으면 어두운 팔레트."""
+    return _rel_luminance(pal["figure"]) > _rel_luminance(pal["ground"])
+
+
+def invert_pal(pal: dict) -> dict:
+    """반전 필드. accent는 반전하지 않는다."""
+    return {"ground": pal["figure"], "figure": pal["ground"], "accent": pal["accent"]}
+
+
+def derive(pal: dict, cfg: dict) -> dict:
+    """팔레트 3색 -> 사용 색 전체. 4번째 hex는 생기지 않는다(전부 파생값)."""
+    c = cfg["colors"]
+    t_muted = c["muted_mix_dark"] if is_dark_ground(pal) else c["muted_mix_light"]
+    muted = mix(pal["figure"], pal["ground"], t_muted)
+    hairline = mix(pal["figure"], pal["ground"], c["hairline_mix"])
+
+    r_ground = contrast(muted, pal["ground"])
+    r_figure = contrast(muted, pal["figure"])
+    assert r_ground >= c["muted_min_ratio_ground"], f"muted vs ground {r_ground:.2f}"
+    assert r_figure >= c["muted_min_ratio_figure"], f"muted vs figure {r_figure:.2f}"
+
+    return {"ground": pal["ground"], "figure": pal["figure"], "accent": pal["accent"],
+            "muted": muted, "hairline": hairline}
+
+
+# ---------------------------------------------------------------- §6 줄수 계산
+HANGUL_EM = 0.8643        # Pretendard 한글 실측 글리프 폭
+LATIN_EM = 0.55           # 숫자·라틴 근사치 (실측 캐시가 있으면 그쪽이 우선)
+
+
+def _adv_em(ch: str, font: str | None) -> float:
+    """글자 하나의 em 폭. references/font-metrics.json 이 있으면 실측을 먼저 본다."""
+    if font:
+        import metrics as _m
+        tbl = (_m.load() or {}).get(font)
+        if tbl:
+            v = tbl["adv"].get(str(ord(ch)))
+            if v is not None:
+                return v
+            if "\uac00" <= ch <= "\ud7a3":
+                return tbl["hangul"]
+    return HANGUL_EM if ord(ch) >= 0x1100 else LATIN_EM
+
+
+def advance(ch: str, size: float, tracking: int, font: str | None = None) -> float:
+    """글자 하나의 진행폭(pt). tracking 단위는 1/100 pt."""
+    return size * _adv_em(ch, font) + tracking / 100.0
+
+
+def line_count(text: str, w: float, style: dict, font: str | None = None) -> int:
+    """폭 w(pt) 안에서 필요한 줄 수. 명시적 줄바꿈을 우선 존중한다."""
+    total = 0
+    for para in str(text).split("\n"):
+        used, lines = 0.0, 1
+        for ch in para:
+            a = advance(ch, style["size"], style["tracking"], font)
+            if used + a > w:
+                lines += 1
+                used = a
+            else:
+                used += a
+        total += lines
+    return total
+
+
+def block_h(text: str, w: float, style: dict, font: str | None = None) -> float:
+    """텍스트 박스 높이(pt) = size * leading * 줄수."""
+    return style["size"] * style["leading"] * line_count(text, w, style, font)
+
+
+# ---------------------------------------------------------------- §7 정렬 엔진
+ANCHOR_TOP, ANCHOR_BOTTOM, CONTENT_H, FILL_THRESHOLD = 56.0, 484.0, 428.0, 0.58
+
+
+def resolve_y(block_height: float) -> float:
+    """블록 상단 y를 반환. 중간값은 없다.
+
+    block_height 에 eyebrow 는 포함하지 않는다 — eyebrow 는 항상 y 56 고정이고,
+    빈 공간이 화면 아래가 아니라 눈썹과 본문 사이로 옮겨가는 것이 이 규칙의 핵심이다.
+    """
+    if block_height / CONTENT_H >= FILL_THRESHOLD:      # 경계 248.24pt
+        return ANCHOR_TOP
+    return ANCHOR_BOTTOM - block_height
+
+
+# ---------------------------------------------------------------- §12 사각형 가드
+def assert_plate_ok(w: float, h: float, has_text: bool, kind: str):
+    """렌더러가 사각형을 그릴 수 있는 경우는 정확히 이 셋뿐이다."""
+    if kind == "plate":
+        assert min(w, h) >= 32, f"plate 짧은 변 {min(w, h)} < 32"
+        assert has_text, "활자를 담지 않는 채움 사각형은 생성 금지"
+    elif kind == "hero_rule":
+        assert h == 2, f"hero_rule 두께 {h} != 2"
+    elif kind == "table_rule":
+        assert h == 0.75, f"table_rule 두께 {h} != 0.75"
+    else:
+        raise ValueError(f"허용되지 않은 사각형 종류: {kind}")
 
 
 # ---------------------------------------------------------------- 폰트 적용
@@ -233,13 +331,15 @@ def embed_fonts(path: str, fonts: dict) -> int:
 class Deck:
     def __init__(self, spec: dict, palette: str | None = None, density: str | None = None):
         self.spec = spec
-        self.pal = Palette.build(spec, palette)
-        self.g = Grid.build(spec)
+        self.pal_name = palette or spec["active_palette"]
+        self.base_pal = dict(spec["palettes"][self.pal_name])
+        self.colors = derive(self.base_pal, spec)      # 현재 필드의 색
+        self.field_inverted = False
         self.density = density or spec["density"]
         self.limits = spec["density_limits"][self.density]
         self.prs = Presentation()
-        self.prs.slide_width = Pt(self.g.width)
-        self.prs.slide_height = Pt(self.g.height)
+        self.prs.slide_width = Pt(CANVAS_W)
+        self.prs.slide_height = Pt(CANVAS_H)
         self._blank = self.prs.slide_layouts[6]
         self.manifest: list[dict] = []
         self.shapes: list[dict] = []
@@ -248,18 +348,21 @@ class Deck:
                                     f"ppt-deck-{os.getpid()}")
         self.grounds: dict[int, str] = {}
         self._slide_i = 0
-        self._invert = False        # True면 ground/figure를 맞바꾼다 (밝은 장/어두운 장 교차)
+        self._plates: list[dict] = []
 
     # ---- 색 이름 해석 -------------------------------------------------
     def c(self, name: str) -> str:
-        if self._invert and name in ("ground", "figure"):
-            name = "figure" if name == "ground" else "ground"
-        return {"ground": self.pal.ground, "figure": self.pal.figure,
-                "accent": self.pal.accent, "muted": self.pal.muted}[name]
+        """현재 필드의 색. 반전 필드는 derive()를 다시 통과한 값이라
+        muted 혼합비도 방향에 맞게 재계산돼 있다 (§5.3)."""
+        return self.colors[name]
 
     # ---- 슬라이드 ------------------------------------------------------
-    def slide(self, bg="ground", invert=False):
-        self._invert = invert
+    def slide(self, invert=False):
+        """반전 필드는 슬라이드 배경색으로 처리한다. 사각형을 깔지 않는다 (§12)."""
+        self.field_inverted = invert
+        pal = invert_pal(self.base_pal) if invert else self.base_pal
+        self.colors = derive(pal, self.spec)
+        bg = "ground"
         s = self.prs.slides.add_slide(self._blank)
         fill = s.background.fill
         fill.solid()
@@ -269,8 +372,8 @@ class Deck:
         return s
 
     # ---- 도형 ----------------------------------------------------------
-    def block(self, s, x, y, w, h, color="accent"):
-        """평면 사각형. 테두리·그림자·둥근모서리 없음."""
+    def _rect(self, s, x, y, w, h, color, kind, has_text):
+        assert_plate_ok(w, h, has_text, kind)          # §12 — 이 셋 외의 사각형은 없다
         sh = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, Pt(x), Pt(y), Pt(w), Pt(h))
         sh.fill.solid()
         sh.fill.fore_color.rgb = RGBColor.from_string(self.c(color))
@@ -278,14 +381,23 @@ class Deck:
         sh.shadow.inherit = False
         sh.text_frame.text = ""
         self.shapes.append(dict(slide=self._slide_i, x=x, y=y, w=w, h=h,
-                                color=self.c(color)))
+                                color=self.c(color), kind=kind))
         return sh
 
-    def rule(self, s, x, y, w, thickness=3, color="accent"):
-        """헤어라인. 장식이 아니라 구조 표시용."""
-        return self.block(s, x, y, w, thickness, color)
+    def plate(self, s, x, y, w, h, color="figure"):
+        """채움 판. 짧은 변 >= 32 이고 반드시 활자를 담을 때만 허용된다."""
+        return self._rect(s, x, y, w, h, color, "plate", True)
 
-    # ---- 이미지 --------------------------------------------------------
+    def hero_rule(self, s, x, y, w):
+        """data 히어로 밑줄. 허용된 구조선 1 — 2pt figure 단색."""
+        return self._rect(s, x, y, w, self.spec["rules"]["hero_rule_w"],
+                          "figure", "hero_rule", True)
+
+    def table_rule(self, s, x, y, w):
+        """table 행 구분선. 허용된 구조선 2 — 0.75pt hairline."""
+        return self._rect(s, x, y, w, self.spec["rules"]["table_rule_w"],
+                          "hairline", "table_rule", True)
+
     def picture(self, s, path, x, y, w, h, fit="cover", tag="image", focus="center"):
         """상자에 이미지를 앉힌다.
 
@@ -333,12 +445,12 @@ class Deck:
 
     # ---- 텍스트 --------------------------------------------------------
     def text(self, s, style: str, x, y, w, h, content, *,
-             color="figure", align="left", anchor="top", accent_lead=False,
-             space_after=0, tag="", suffix=None, suffix_scale=0.4,
-             suffix_color="accent"):
+             color="figure", align="left", anchor="top",
+             space_after=0, tag="", suffix=None, suffix_style=None,
+             suffix_color="figure", font_key=None, accent_paras=()):
         """content: str 또는 list[str](문단들). style은 spec.styles의 키여야 한다."""
         st = self.spec["styles"][style]
-        font = self.spec["fonts"][st["font"]]
+        font = self.spec["fonts"][font_key or st["font"]]
         paras = content if isinstance(content, list) else [content]
 
         box = s.shapes.add_textbox(Pt(x), Pt(y), Pt(w), Pt(h))
@@ -356,67 +468,39 @@ class Deck:
             p.line_spacing = st["leading"]
             if space_after and i < len(paras) - 1:
                 p.space_after = Pt(space_after)
-            if accent_lead:                     # 불릿 대신 짧은 대시 — 기본 불릿 글머리표를 쓰지 않는다
-                gap = st["size"] * 0.85          # 대시-본문 간격. 공백문자는 폰트마다 들쭉날쭉해 못 믿는다
-                hang = int((st["size"] + gap) * 12700)
-                pPr = p._p.get_or_add_pPr()
-                pPr.set("marL", str(hang)); pPr.set("indent", str(-hang))
-                r = p.add_run(); r.text = "\u2014"
-                _apply_font(r, font, st["size"], self.c("accent"),
-                            tracking=int(gap * 100))
             r = p.add_run(); r.text = str(ptext)
-            _apply_font(r, font, st["size"], self.c(color),
+            _apply_font(r, font, st["size"],
+                        self.c("accent") if i in accent_paras else self.c(color),
                         tracking=st.get("tracking", 0))
             _end_para(p, font, st["size"], self.c(color))
             if suffix and i == len(paras) - 1:
                 sfx = str(suffix)
                 if sfx[0].isalpha() or "가" <= sfx[0] <= "힣":   # 27% 는 붙이고 62 시간 은 띄운다
                     sfx = "\u202f" + sfx        # 붙임 공백. U+2009는 여기서 줄을 끊어버린다
+                sst = self.spec["styles"][suffix_style or "stat_sub"]
                 r = p.add_run(); r.text = sfx
-                _apply_font(r, font, st["size"] * suffix_scale, self.c(suffix_color))
+                _apply_font(r, self.spec["fonts"][sst["font"]], sst["size"],
+                            self.c(suffix_color), tracking=sst.get("tracking", 0))
 
         extra_pt = 0.0
-        if suffix:                      # 단위는 본문보다 작게 찍힌다. 본문 크기로 세면 과대추정이다.
+        if suffix:                      # 단위는 제 스타일 크기로 잰다
             sfx = str(suffix)
             if sfx[0].isalpha() or "가" <= sfx[0] <= "힣":
                 sfx = "\u202f" + sfx
-            extra_pt = est_adv(sfx, font) * st["size"] * suffix_scale
+            sst = self.spec["styles"][suffix_style or "stat_sub"]
+            extra_pt = sum(_adv_em(c, self.spec["fonts"][sst["font"]]) for c in sfx) * sst["size"]
         self.manifest.append(dict(slide=self._slide_i, tag=tag or style, style=style,
                                   x=x, y=y, w=w, h=h, size=st["size"],
-                                  leading=st["leading"], accent_lead=accent_lead,
-                                  space_after=space_after, extra_pt=extra_pt,
+                                  leading=st["leading"],                                   space_after=space_after, extra_pt=extra_pt,
                                   font=font, tracking=st.get("tracking", 0),
                                   color=self.c(color), align=align, anchor=anchor,
                                   suffix=str(suffix) if suffix else None,
-                                  suffix_scale=suffix_scale,
+                                  suffix_style=suffix_style,
                                   suffix_color=self.c(suffix_color),
                                   text=[str(t) for t in paras]))
         return box
 
     # ---- 쪽번호 --------------------------------------------------------
-    def page_number(self, s, n):
-        """기본은 우하단. 거기에 이미지가 깔려 있으면 반대쪽으로 피한다 —
-        사진 위의 회색 숫자는 안 보이거나 지저분하다."""
-        g = self.g
-        x, align = g.right - 60, "right"
-        for im in self.images:
-            if im["slide"] != self._slide_i:
-                continue
-            if (im["x"] < g.right and im["x"] + im["w"] > g.right - 60
-                    and im["y"] < g.height - 18 and im["y"] + im["h"] > g.height - 34):
-                x, align = g.margin_x, "left"
-                break
-        else:
-            pass
-        if align == "left":
-            for im in self.images:          # 왼쪽도 덮였으면 아예 찍지 않는다
-                if im["slide"] == self._slide_i and im["x"] <= g.margin_x \
-                        and im["x"] + im["w"] > g.margin_x + 60 \
-                        and im["y"] + im["h"] > g.height - 34:
-                    return
-        self.text(s, "label", x, g.height - 34, 60, 16, f"{n:02d}",
-                  color="muted", align=align, tag="pagenum")
-
     def save(self, path, embed=False):
         os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
         self.prs.save(path)
@@ -424,60 +508,10 @@ class Deck:
         self.embedded = embed_fonts(path, self.spec["fonts"]) if embed else 0
         mpath = os.path.splitext(path)[0] + ".manifest.json"
         with open(mpath, "w", encoding="utf-8") as f:
-            json.dump({"spec_styles": self.spec["styles"], "palette": self.pal.__dict__,
-                       "density": self.density, "canvas": [self.g.width, self.g.height],
+            json.dump({"spec_styles": self.spec["styles"], "palette": self.colors,
+                       "density": self.density, "canvas": [CANVAS_W, CANVAS_H],
                        "grounds": self.grounds, "shapes": self.shapes,
                        "images": self.images,
                        "boxes": self.manifest}, f,
                       ensure_ascii=False, indent=1)
         return path, mpath
-
-
-# ---------------------------------------------------------------- 넘침 추정
-def est_adv(text: str, font: str | None = None) -> float:
-    """문자열의 가로 폭을 em 단위로 계산.
-
-    설치된 Pretendard에서 뽑은 실측 글리프 폭을 쓴다(scripts/metrics.py).
-    캐시가 없을 때만 어림값으로 물러난다 — 어림값은 한글을 1.0em으로 잡아 16% 과대추정한다.
-    """
-    import metrics as _m
-    tbl = (_m.load() or {}).get(font or "")
-    if tbl:
-        adv, hangul, dflt = tbl["adv"], tbl["hangul"], tbl["default"]
-        total = 0.0
-        for ch in text:
-            cp = str(ord(ch))
-            if cp in adv:
-                total += adv[cp]
-            elif "\uac00" <= ch <= "\ud7a3":
-                total += hangul
-            else:
-                total += dflt
-        return total
-    out = 0.0
-    for ch in text:                     # 폴백: 실측 캐시가 없을 때만
-        if ch in " \u2009\u202f":
-            out += 0.28 if ch == " " else 0.14
-        elif "가" <= ch <= "힣" or "㄰" <= ch <= "㆏" or "一" <= ch <= "鿿":
-            out += 0.87
-        elif ch.isdigit():
-            out += 0.62
-        else:
-            out += 0.52
-    return out
-
-
-def est_lines(text: str, size: float, width: float, extra_pt: float = 0.0,
-              font: str | None = None) -> int:
-    if width <= 0:
-        return 1
-    return max(1, math.ceil((est_adv(text, font) * size + extra_pt) / width))
-
-
-def est_height(paras, size, leading, width, space_after=0, accent_lead=False,
-               extra_pt=0.0, font=None):
-    last = len(paras) - 1
-    lines = sum(est_lines(("— " if accent_lead else "") + str(p), size, width,
-                          extra_pt if i == last else 0.0, font)
-                for i, p in enumerate(paras))
-    return lines * size * leading + space_after * max(0, last)

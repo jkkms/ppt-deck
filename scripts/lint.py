@@ -27,13 +27,17 @@ def wrn(i, code, msg): WARNS.append(f"[{code}] slide {i}: {msg}")
 
 def texts_of(sl) -> list[str]:
     out = []
-    for k in ("title", "subtitle", "lead", "text", "note", "source", "body"):
+    for k in ("title", "subtitle", "lead", "text", "note", "source", "body",
+              "eyebrow", "runner", "subhead", "subbody", "caption", "footnote"):
         if sl.get(k): out.append(str(sl[k]))
     out += [str(b) for b in (sl.get("bullets") or [])]
     out += [str(x) for x in (sl.get("lines") or [])]
+    out += [str(x) for x in (sl.get("meta") or [])]
+    for r in (sl.get("ledger") or []):
+        out += [str(r.get("label", "")), str(r.get("value", ""))]
     for it in (sl.get("items") or []):
         out += [str(it.get(k, "")) for k in
-                ("value", "unit", "caption", "number", "title", "body") if it.get(k)]
+                ("value", "unit", "caption", "index", "title", "body") if it.get(k)]
     for r in (sl.get("rows") or []):
         out += [str(c) for c in r]
     out += [str(h) for h in (sl.get("headers") or [])]
@@ -89,40 +93,50 @@ def main(path, spec_path=None):
                 if c in t:
                     wrn(i, "CLICHE", f"상투어 '{c}' — 구체적 명사로 바꿔라: {t[:34]!r}")
 
+        # 재설계 이후 two_col·image_split 의 bullets 는 불릿이 아니라 '산문 단락'이다
+        # (§8.5 "우 본문 8줄"). 문장형·길이·균일성 검사는 여기에 적용하지 않는다.
+        # 대신 분량이 규정된 박스(가득 223pt / 적음 112pt)를 넘는지 본다.
         bl = [str(b) for b in (sl.get("bullets") or [])]
-        if len(bl) > lim["bullets"]:
-            err(i, "DENSITY", f"불릿 {len(bl)}개 > {dens} 한도 {lim['bullets']}개. "
-                              f"글자를 줄이지 말고 슬라이드를 쪼개라")
-        for b in bl:
-            if SENTENCE_END.search(b.strip()):
-                wrn(i, "SENTENCE", f"불릿이 완결 문장이다 — 명사구로 잘라라: {b[:34]!r}")
-            if len(b) > lim["bullet_chars"]:
-                wrn(i, "LONG", f"불릿 {len(b)}자 > {lim['bullet_chars']}자: {b[:34]!r}")
-        if len(bl) >= 3:
-            L = [len(b) for b in bl]
-            if max(L) - min(L) <= 2:
-                wrn(i, "UNIFORM", f"불릿 길이가 {L}로 균일하다. 사람은 이렇게 안 쓴다 — "
-                                  f"하나는 짧게, 하나는 길게")
-            heads = Counter(b[:2] for b in bl)
+        if bl and lay in ("two_col", "image_split"):
+            from deckkit import block_h, span_w
+            w = span_w(7) if lay == "two_col" else span_w(5)
+            cap = 223 if lay == "two_col" else 195
+            h = block_h("\n".join(bl), w, spec["styles"]["body"], spec["fonts"]["body"])
+            if h > cap + 0.5:
+                err(i, "OVERSET", f"본문 {h:.0f}pt > 박스 {cap}pt — 자간을 조이지 말고 "
+                                  f"분량을 줄이거나 슬라이드를 쪼개라")
+        # 짧은 항목이 나열되는 곳(cards)에만 기계적 병렬·문장형 검사를 건다
+        titles_i = [str(it.get("title", "")) for it in (sl.get("items") or []) if it.get("title")]
+        if lay == "cards" and len(titles_i) >= 3:
+            L = [len(t) for t in titles_i]
+            if max(L) - min(L) <= 1:
+                wrn(i, "UNIFORM", f"카드 제목 길이가 {L}로 균일하다 — 하나는 짧게, 하나는 길게")
+            heads = Counter(t[:2] for t in titles_i)
             if heads.most_common(1)[0][1] >= 3:
-                wrn(i, "UNIFORM", "불릿이 전부 같은 두 글자로 시작한다 — 기계적 병렬")
+                wrn(i, "UNIFORM", "카드 제목이 전부 같은 두 글자로 시작한다 — 기계적 병렬")
+        for t in titles_i:
+            if SENTENCE_END.search(t.strip()):
+                wrn(i, "SENTENCE", f"카드 제목이 완결 문장이다 — 명사구로 잘라라: {t[:30]!r}")
 
-        if lay in ("image_split", "image_full") and not sl.get("image"):
-            err(i, "IMAGE", f"'{lay}' 인데 image 경로가 없다")
-        for ip in ([sl.get("image")] + [it.get("image") for it in (sl.get("items") or [])]):
-            if not ip:
-                continue
-            q = os.path.expanduser(str(ip))
-            q = q if os.path.isabs(q) else os.path.join(base, q)   # 아웃라인 파일 기준
-            if not os.path.exists(q):
-                err(i, "IMAGE", f"이미지 파일이 없다: {ip}")
-        if lay == "cards" and len(sl.get("items") or []) > 6:
-            err(i, "DENSITY", f"카드 {len(sl['items'])}개 > 6개. 한 화면에 여섯 덩이 넘게 놓으면 아무도 안 읽는다")
-        if lay == "two_col" and not sl.get("lead") and len(bl) <= 2:
-            wrn(i, "BALANCE", "lead 없이 불릿 2개 이하 — 왼쪽 컬럼이 비어 화면이 한쪽으로 쏠린다. "
-                              "lead를 넣거나 statement로 바꿔라")
+        if lay == "cards":
+            n_it = len(sl.get("items") or [])
+            if n_it not in (2, 3, 4, 5, 6):
+                err(i, "CARDS_N", f"cards 항목 {n_it}개 — 2~6개만 지원한다. "
+                                  f"1개는 statement/data, 7개 이상은 슬라이드를 쪼개라")
         if lay == "table" and len(sl.get("rows") or []) > lim["table_rows"]:
             err(i, "DENSITY", f"표 {len(sl['rows'])}행 > 한도 {lim['table_rows']}행")
+
+    MODE = {2: "pair", 3: "ledger", 4: "quad", 5: "dense", 6: "dense"}
+    prev_mode = None
+    for i, sl in enumerate(slides, 1):
+        if sl.get("layout") == "cards":
+            mode = MODE.get(len(sl.get("items") or []))
+            if mode and mode == prev_mode:
+                err(i, "CARDS_MODE", f"직전 cards 와 같은 '{mode}' 모드 — "
+                                     f"항목 수를 조정해 구성을 바꿔라")
+            prev_mode = mode
+        else:
+            prev_mode = None
 
     # --- 덱 전체 ------------------------------------------------------
     lays = [s.get("layout") for s in slides]

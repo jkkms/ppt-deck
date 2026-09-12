@@ -1,70 +1,134 @@
-# ppt-deck 아웃라인 — 다음부터 손대는 건 이 파일 하나뿐이다.
-#
-# 아래 수치·인용은 전부 레이아웃 시연용 가상 데이터다. 실제 기관·강의의 기록이 아니다.
+# ppt-deck 아웃라인 예시 — 명세서 아트보드 17장과 1:1 대응한다.
+# 더미 문구는 HANDOFF §8 의 것을 그대로 썼다. 좌표 대조용이다.
 meta:
-  title: "재현 가능한 채점 파이프라인"
-  subtitle: "조교 6명이 480편을 3일에 끝내는 구조"
-  author: "이든"
-  org: "교육공학팀"
-  date: "2026.03"
-  palette: letterpress        # letterpress | blueprint | graphite
-  density: speaker            # speaker(발표용) | reading(읽기용)
+  title: "재고 예측을\n다시 설계한다"
+  palette: letterpress
+  density: speaker
   output: "out/deck.pptx"
 
 slides:
+  # 01 cover · letterpress
   - layout: cover
+    eyebrow: "01 / 2026 연간 전략"
+    year: "26"
+    title: "재고 예측을\n다시 설계한다"
+    meta: ["제품기획팀 · 2026년 3월 12일", "내부 검토용 초안 v3"]
 
+  # 03 section · blueprint 반전
   - layout: section
-    number: "01"
-    label: "문제"
-    title: "채점은 왜 매번 무너지는가"
+    number: "03"
+    runner: "3개 장 · 7분"
+    title: "주문 주기를\n먼저 쪼갠다"
 
+  # 04 statement 적음 · graphite
   - layout: statement
-    text: "같은 답안, 조교마다 다른 점수."
-    note: "직전 학기 · 무작위 40편 재채점 기준"
+    eyebrow: "02 / 논점"
+    runner: "직전 4분기 실측 기준"
+    text: "문제는 예측이 아니라\n입력 시점이다"
 
-  # items 순서가 곧 위계다. 첫 항목이 히어로로 크게 서고 나머지는 우측에 종속된다.
-  - layout: data
-    title: "재채점 실측"
+  # 06 two_col 가득 · letterpress
+  - layout: two_col
+    eyebrow: "03 / 설계"
+    title: "무너지는\n세 지점"
+    lead: "루브릭이 아니라 루브릭을 읽는 방식이 흔들린다. 세 지점 모두 사람이 아니라 절차의 문제로 관찰됐다."
+    bullets:
+      - "발주 승인은 주 단위로 모이지만 판매 데이터는 일 단위로 들어온다. 두 주기가 어긋나는 구간에서 예측은 항상 과소 추정된다."
+      - "창고 실사 결과가 시스템에 반영되기까지 평균 사흘이 걸리고, 그 사흘은 어느 장부에도 남지 않는다."
+    subhead: "그래서 순서를 바꾼다"
+    subbody: "모델 교체보다 입력 주기 정렬이 먼저다. 두 주기를 맞추는 데 드는 비용은 한 분기치 개발 공수다."
+
+  # 08 cards pair (2) · blueprint
+  - layout: cards
+    eyebrow: "04 / 두 갈래"
+    title: "선택지는 둘뿐이다"
     items:
-      - {value: "11.3", unit: "점", caption: "조교 간 평균 점수 편차. 40편 무작위 재채점 기준"}
-      - {value: "62",   unit: "시간", caption: "1회차 총 채점 시간"}
-      - {value: "27",   unit: "%",  caption: "이의제기로 되돌아온 답안"}
+      - {index: "가", title: "주기를 맞춘다", body: "발주와 판매 데이터를 같은 주기로 모은다. 비용은 한 분기치 개발 공수."}
+      - {index: "나", title: "모델을 바꾼다", body: "입력은 그대로 두고 예측기를 교체한다. 같은 오차가 다시 나타난다."}
 
-  - layout: two_col
-    title: "무너지는 지점"
-    lead: "루브릭이 아니라 루브릭을 읽는 방식이 흔들린다."
-    bullets:
-      - "부분점수 기준의 구두 합의"
-      - "조교별 엄격도가 뒤로 갈수록 느슨해짐"
-      - "이의제기 처리 이력이 남지 않음"
+  # 05 statement 가득 · graphite
+  - layout: statement
+    eyebrow: "02 / 논점"
+    text: "재고는 창고의\n문제가 아니라\n주문서의 문제다"
+    body: "발주 확정과 판매 반영 사이의 지연이 예측 오차의 절반을 만든다. 모델을 바꾸기 전에 이 구간을 먼저 줄인다."
 
+  # 09 cards ledger (3) · blueprint
+  - layout: cards
+    eyebrow: "05 / 절차"
+    title: "사흘로 끝내는 순서"
+    items:
+      - {index: "1", title: "캘리브레이션", body: "표본 20편으로 합의 점수표를 만든다. 전원이 같은 답안을 본다."}
+      - {index: "2", title: "1차 채점", body: "항목별 점수와 근거 문장을 함께 남긴다. 근거 없는 점수는 받지 않는다."}
+      - {index: "3", title: "편차 3점 이상만 재심", body: "판정 이력을 로그로 남긴다. 누가 왜 바꿨는지가 남아야 한다."}
+
+  # 12 data 가득 · dive
+  - layout: data
+    eyebrow: "08 / 실측"
+    items:
+      - {value: "11.3", unit: "점", caption: "조교 간 평균 점수 편차. 무작위 40편을 다시 채점해 얻은 값이다."}
+      - {value: "62", unit: "시간", caption: "1회차 총 채점 시간"}
+      - {value: "27", unit: "%", caption: "이의제기로 되돌아온 답안"}
+      - {value: "3", unit: "일", caption: "실사 반영까지 걸리는 시간"}
+
+  # 10 cards quad (4) · graphite
+  - layout: cards
+    eyebrow: "06 / 점검"
+    title: "네 가지를 확인한다"
+    items:
+      - {index: "01", title: "입력 주기", body: "발주와 판매가 같은 주기로 모이는가"}
+      - {index: "02", title: "실사가 장부에 닿는 날수", body: "며칠 만에 반영되는가"}
+      - {index: "03", title: "표본 분포", body: "난이도 구간을 고르게 덮는가"}
+      - {index: "04", title: "판정 이력", body: "누가 왜 바꿨는지 남는가"}
+
+  # 14 quote · letterpress
   - layout: quote
-    text: "규칙을 문서로 못 박기 전까지, 공정성은 그날 조교의 컨디션이었다."
+    text: "규칙을 문서로 못 박기 전까지, 우리가 공정하다고 부른 것은 그날 조교의 컨디션이었다."
     source: "운영 회고록"
+    note: "2025년 가을, 조교 6명 인터뷰"
 
-  - layout: section
-    number: "02"
-    label: "설계"
-    title: "루브릭을 먼저 못 박는다"
+  # 11 cards dense (6) · graphite
+  - layout: cards
+    eyebrow: "07 / 범위"
+    title: "여섯 곳을 동시에 본다"
+    items:
+      - {index: "01", title: "발주 승인", body: "주 단위로 모인다"}
+      - {index: "02", title: "판매", body: "일 단위 수집"}
+      - {index: "03", title: "실사", body: "평균 사흘 지연"}
+      - {index: "04", title: "예측", body: "과소 추정 구간"}
+      - {index: "05", title: "재심", body: "편차 3점 기준"}
+      - {index: "06", title: "로그", body: "판정 이력 보존"}
 
-  - layout: table
-    title: "3일 운영 계획"
-    headers: ["단계", "산출물", "담당"]
-    rows:
-      - ["D-1 캘리브레이션", "표본 20편 합의 점수표", "전원"]
-      - ["D1 1차 채점", "항목별 점수 + 근거 문장", "조교 6"]
-      - ["D2 교차 검수", "편차 3점 이상 답안 재심", "책임조교"]
-      - ["D3 이의 처리", "판정 로그", "책임조교"]
-
-  # lead 없이 불릿 2개 이하면 왼쪽 컬럼이 비어 화면이 쏠린다. 린터가 BALANCE로 잡는다.
+  # 07 two_col 적음 · letterpress
   - layout: two_col
-    title: "남은 위험"
-    lead: "설계가 막지 못하는 두 가지."
+    eyebrow: "05 / 남은 위험"
+    title: "설계가\n막지 못하는 것"
     bullets:
-      - "표본 20편이 난이도 분포를 못 덮을 때"
-      - "D2 재심 물량 초과에 따른 일정 지연"
+      - "표본이 난이도 분포를 못 덮는 구간. 재심 물량이 예측을 넘기면 일정이 밀린다."
 
+  # 13 data 적음 · dive
+  - layout: data
+    eyebrow: "09 / 한 숫자"
+    runner: "2030년 전망"
+    items:
+      - {value: "+7,800", unit: "만", caption: "사라지는 일을 빼고도 순증하는 일자리. 세계경제포럼 「일자리의 미래 2025」"}
+
+  # 15 table · graphite
+  - layout: table
+    eyebrow: "10 / 운영"
+    title: "사흘 계획과 산출물"
+    headers: ["단계", "인원", "시간", "산출물 수"]
+    rows:
+      - ["D-1 캘리브레이션", "6", "3", "1"]
+      - ["D1 1차 채점", "6", "24", "480"]
+      - ["D2 교차 검수", "2", "16", "62"]
+      - ["D3 이의 처리", "1", "8", "27"]
+      - ["합계", "6", "51", "570"]
+    footnote: "시간은 인당 누적 기준. 합계 행의 인원은 중복을 제외한 실인원이다."
+
+  # 02 closing · letterpress 반전
   - layout: closing
-    title: "다음 학기부터 적용"
-    lines: ["이든 · name@example.com", "루브릭 초안은 3월 20일까지"]
+    eyebrow: "04 / 마무리"
+    ledger:
+      - {label: "담당", value: "제품기획팀 · 이든"}
+      - {label: "회신 기한", value: "3월 27일 금요일까지"}
+      - {label: "문서", value: "내부 위키 · 재고예측 2026"}
+    title: "다음 단계는"

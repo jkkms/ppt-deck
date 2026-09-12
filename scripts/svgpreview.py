@@ -15,7 +15,11 @@ import argparse, json, math, os, sys
 from html import escape
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from deckkit import est_adv
+from deckkit import _adv_em, load_spec
+
+
+def est_adv(text, font=None):
+    return sum(_adv_em(c, font) for c in str(text))
 
 
 def wrap(text, size, width, font, extra_pt=0.0):
@@ -69,11 +73,12 @@ def render(man, idx):
         trk = (b.get("tracking") or 0) / 100.0
         lines, meta = [], []
         for i, para in enumerate(b["text"]):
-            pre = "— " if b.get("accent_lead") else ""
+            pre = ""
             extra = b.get("extra_pt", 0) if i == len(b["text"]) - 1 else 0
-            for j, ln in enumerate(wrap(pre + str(para), size, b["w"], font, extra)):
-                lines.append(ln)
-                meta.append((i, j == 0))
+            for sub in str(para).split("\n"):
+                for j, ln in enumerate(wrap(pre + sub, size, b["w"], font, extra)):
+                    lines.append(ln)
+                    meta.append((i, j == 0))
             if b.get("space_after") and i < len(b["text"]) - 1:
                 lines.append(None); meta.append((i, False))
 
@@ -92,7 +97,7 @@ def render(man, idx):
             x = {"left": b["x"], "right": b["x"] + b["w"],
                  "center": b["x"] + b["w"] / 2}[align]
             # 대시 머리글은 accent 색, 본문은 지정 색
-            if b.get("accent_lead") and ln.startswith("— "):
+            if False:
                 hang = est_adv("—", font) * size + size * 0.85
                 parts.append(f'<text x="{x:.1f}" y="{y:.1f}" font-family="{font}" '
                              f'font-size="{size:.1f}" fill="#{man["palette"]["accent"]}" '
@@ -104,7 +109,7 @@ def render(man, idx):
             else:
                 tail = ""
                 if b.get("suffix") and k == len(lines) - 1:
-                    ss = size * b.get("suffix_scale", 0.4)
+                    ss = size * 0.4
                     tail = (f'<tspan font-size="{ss:.1f}" fill="#{b["suffix_color"]}">'
                             f'{escape(b["suffix"])}</tspan>')
                 parts.append(f'<text x="{x:.1f}" y="{y:.1f}" text-anchor="{anchor}" '
@@ -171,9 +176,10 @@ def raster(man, idx, scale=1.0):
         trk = (b.get("tracking") or 0) / 100.0
         lines = []
         for i, para in enumerate(b["text"]):
-            pre = "— " if b.get("accent_lead") else ""
+            pre = ""
             extra = b.get("extra_pt", 0) if i == len(b["text"]) - 1 else 0
-            lines += wrap(pre + str(para), size, b["w"], font, extra)
+            for sub in str(para).split("\n"):
+                lines += wrap(pre + sub, size, b["w"], font, extra)
             if b.get("space_after") and i < len(b["text"]) - 1:
                 lines.append(None)
         real = [l for l in lines if l is not None]
@@ -189,10 +195,10 @@ def raster(man, idx, scale=1.0):
             f = F(font, size)
             adv = dr.textlength(ln, font=f) / scale + trk * max(0, len(ln) - 1)
             if b.get("suffix") and k == len(lines) - 1:
-                adv += dr.textlength(b["suffix"], font=F(font, size * b.get("suffix_scale", .4))) / scale
+                adv += dr.textlength(b["suffix"], font=F(font, size * 0.4)) / scale
             x = {"left": b["x"], "right": b["x"] + b["w"] - adv,
                  "center": b["x"] + (b["w"] - adv) / 2}[b.get("align", "left")]
-            if b.get("accent_lead") and ln.startswith("— "):
+            if False:
                 draw(x, y, "—", font, size, man["palette"]["accent"])
                 hang = est_adv("—", font) * size + size * 0.85
                 draw(x + hang, y, ln[2:], font, size, b["color"], trk)
@@ -200,7 +206,7 @@ def raster(man, idx, scale=1.0):
                 draw(x, y, ln, font, size, b["color"], trk)
                 if b.get("suffix") and k == len(lines) - 1:
                     sx = x + dr.textlength(ln, font=f) / scale + trk * max(0, len(ln) - 1)
-                    draw(sx, y, b["suffix"], font, size * b.get("suffix_scale", .4),
+                    draw(sx, y, b["suffix"], font, size * 0.4,
                          b["suffix_color"])
             y += size * lead
     return img
