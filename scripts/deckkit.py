@@ -183,6 +183,11 @@ def line_count(text: str, w: float, style: dict, font: str | None = None) -> int
     return total
 
 
+def block_w(text: str, style: dict, font: str | None = None) -> float:
+    """한 줄로 놓았을 때의 폭(pt). 칩처럼 내용에 맞춰 크기가 정해지는 도형에 쓴다."""
+    return sum(advance(ch, style["size"], style["tracking"], font) for ch in str(text))
+
+
 def block_h(text: str, w: float, style: dict, font: str | None = None) -> float:
     """텍스트 박스 높이(pt) = size * leading * 줄수."""
     return style["size"] * style["leading"] * line_count(text, w, style, font)
@@ -432,6 +437,31 @@ class Deck:
         self.shapes.append(dict(slide=self._slide_i, x=x, y=y, w=w, h=h,
                                 color=self.c(color), kind="panel", radius=radius))
         return sh
+
+    def chip(self, s, x, y, w, h, text="", color="accent", text_color="ground",
+             style="small", radius=4.0):
+        """번호 칩 / 눈썹 칩. 실측 47.5x23 (번호) · 147.6x30 (눈썹), accent 채움."""
+        sh = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Pt(x), Pt(y), Pt(w), Pt(h))
+        try:
+            sh.adjustments[0] = min(0.5, radius / max(1e-6, min(w, h)))
+        except Exception:
+            pass
+        sh.fill.solid(); sh.fill.fore_color.rgb = RGBColor.from_string(self.c(color))
+        sh.line.fill.background(); sh.shadow.inherit = False
+        sh.text_frame.text = ""
+        self.shapes.append(dict(slide=self._slide_i, x=x, y=y, w=w, h=h,
+                                color=self.c(color), kind="chip", radius=radius))
+        if text:
+            st = self.spec["styles"][style]
+            self.text(s, style, x, y + (h - st["size"] * st["leading"]) / 2, w,
+                      st["size"] * st["leading"] + 2, str(text), color=text_color,
+                      align="center", tag="chip-text")
+        return sh
+
+    def divider(self, s, x, y, w, color="hairline"):
+        """전폭 구분선. 실측 845 길이로 73회 — 구획을 나누는 구조선이다."""
+        return self._rect(s, x, y, w, self.spec["shapes"].get("divider_w", 1),
+                          color, "connector", True)
 
     def badge(self, s, cx, cy, d=32.0, color="accent", glyph="", glyph_color="ground",
               style="small"):

@@ -96,12 +96,26 @@ cards:
 shapes:
   badge_d:      32      # 주 배지 지름 (실측 124회)
   badge_d_sub:  24      # 보조 배지 (실측 62회)
-  panel_h:      61      # 패널 기본 높이 (실측 61.3)
+  badge_gap:    13      # 배지 오른변 -> 텍스트 (실측 174회, 압도적 최빈값)
+  panel_h:      61      # 한 줄짜리 패널 높이 (실측 61.3)
   panel_radius: 5       # 모서리 반경 (실측 5.0pt)
-  panel_pad_x:  24      # 패널 좌우 안여백
+  panel_pad_x:  24      # 패널 좌 안여백 (실측 117회)
+  panel_pad_y:  19      # 패널 상 안여백 (실측 20/22 최빈)
+  panel_gap:    27.5    # 전폭 패널 사이 여백 (실측 302.3-168.5-106.4)
+  panel_text_x: 86      # 패널 좌변 -> 주문장 x (실측 144.0-57.6)
+  chip_w:       47.5    # 번호 칩 (실측 47.5x23, accent 채움 + 11.5pt)
+  chip_h:       23
+  eyebrow_chip_h: 30    # 눈썹을 칩으로 쓸 때 (실측 147.6x30.2)
+  subrow_step:  20      # 패널 안 하위 행 step (실측)
+  subrow_indent: 44.6   # 하위 번호 -> 하위 텍스트 (실측 188.6-144.0)
+  card_h:       245     # 세로 카드 높이 (실측 244.8)
+  card_gap:     14.4    # 카드 사이 (실측)
+  card_pad:     13      # 카드 좌 안여백 (실측 74.2-61.2)
+  card_badge_d: 40      # 카드 안 배지 (실측 40.3)
   chain_indent: 47.5    # 사슬 들여쓰기 step (실측 82.1 -> 129.6 -> 177.1)
   chain_step:   53      # 사슬 행 step (실측 53.3)
   connector_w:  1       # 연결선 두께 (실측 1.0pt 193회)
+  divider_w:    1       # 전폭 구분선 (실측 845 길이 73회)
 
 table:
   header_h: 28

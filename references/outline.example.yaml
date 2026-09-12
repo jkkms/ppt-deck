@@ -90,6 +90,30 @@ slides:
       - "맞춘 뒤에도 남는 오차는 무엇인가?"
       - "그 오차는 모델로 줄일 수 있는가?"
 
+  # panel_list · 전폭 tint 패널 + 번호 칩 + 하위 행
+  - layout: panel_list
+    eyebrow: "07 | 되묻기"
+    title: "예상 질문"
+    lead: "발주 주기와 예측 오차 · 3–5번"
+    items:
+      - index: "3"
+        text: "발주 주기를 판매 주기에 맞추면 오차가 줄어든다고 보고했습니다."
+        subs: ["두 주기를 맞추는 비용은 얼마입니까?", "맞춘 뒤에도 남는 오차는 무엇입니까?"]
+      - index: "4"
+        text: "실사 반영이 평균 사흘 걸린다고 했습니다."
+        subs: ["그 사흘은 어느 장부에도 남지 않습니까?"]
+
+  # card_grid · 세로 카드
+  - layout: card_grid
+    eyebrow: "08 | 점검"
+    eyebrow_chip: true
+    title: "네 곳을 동시에 본다"
+    items:
+      - {index: "1", title: "발주", body: "주 단위로 승인이 모인다"}
+      - {index: "2", title: "판매", body: "일 단위로 수집된다"}
+      - {index: "3", title: "실사", body: "평균 사흘 지연된다"}
+      - {index: "4", title: "재심", body: "편차 3점이 기준이다"}
+
   # 14 quote · letterpress
   - layout: quote
     text: "규칙을 문서로 못 박기 전까지, 우리가 공정하다고 부른 것은 그날 조교의 컨디션이었다."

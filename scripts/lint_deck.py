@@ -82,7 +82,7 @@ def main(path):
                 # image_full 의 글자는 판 내부 좌표라 그리드 밖을 허용한다
                 # chain 의 들여쓰기(47.5pt step)와 배지 안 활자는 컬럼 그리드를 일부러 벗어난다.
                 # 계단이 관계를 나타내는 장치이기 때문이다 — 사용자 덱도 82.1/129.6/177.1 이다.
-                if b["tag"].startswith(("chain-", "badge-", "panel-")) or \
+                if b["tag"].startswith(("chain-", "badge-", "panel-", "chip-", "card-")) or \
                    b["tag"] in ("full-title", "caption", "ledger-index") or \
                    (b["tag"] == "eyebrow" and b["y"] > 300):
                     continue
@@ -95,7 +95,7 @@ def main(path):
                 # image_full 만 예외 — 눈썹이 판 내부(y 340)에 놓인다 (§8.15).
                 ok_y = {(spec.get("rhythm_y") or {}).get("eyebrow_y", 56), 340, 354}
                 # 가운데 정렬은 배지 안 글리프에만 허용한다. 본문은 전부 좌정렬.
-                if b.get("align") == "center" and not b["tag"].startswith("badge-"):
+                if b.get("align") == "center" and not b["tag"].startswith(("badge-", "chip-")):
                     fail("ALIGN", f"s{n}: '{b['tag']}' 가운데 정렬 — 본문은 좌정렬이다")
                 if b["tag"] == "eyebrow" and b["y"] not in ok_y:
                     fail("EYEBROW_Y", f"s{n}: 눈썹 라벨 y={b['y']} (56 고정)")
@@ -115,18 +115,19 @@ def main(path):
                                f"(최하단 {max(bottoms):.0f})")
         # 도형 어휘 검사 — "도형 금지"가 아니라 "장식만 하는 도형 금지"다.
         # panel/badge 는 안에 활자가 있어야 하고, 선은 관계를 나타내야 한다.
-        ALLOWED = {"plate", "panel", "badge", "connector", "hero_rule", "table_rule"}
+        ALLOWED = {"plate", "panel", "badge", "chip", "connector",
+                   "hero_rule", "table_rule"}
         for sh in man.get("shapes", []):
             k, n = sh.get("kind"), sh["slide"]
             if k not in ALLOWED:
                 fail("SHAPE", f"s{n}: 허용되지 않은 도형 '{k}'")
                 continue
-            if k in ("plate", "panel", "badge"):
+            if k in ("plate", "panel", "badge", "chip"):
                 inside = [b for b in by_slide.get(n, [])
                           if b["x"] >= sh["x"] - 2 and b["y"] >= sh["y"] - 14
                           and b["x"] + b["w"] <= sh["x"] + sh["w"] + 2
                           and b["y"] <= sh["y"] + sh["h"] + 4]
-                if not inside and k != "panel":
+                if not inside and k not in ("panel",):
                     fail("SHAPE", f"s{n}: '{k}' 안에 활자가 없다 — 장식 도형은 만들지 않는다")
                 if min(sh["w"], sh["h"]) < spec["plates"]["plate_min_side"] and k == "plate":
                     fail("PLATE", f"s{n}: plate 짧은 변 {min(sh['w'], sh['h'])} 미달")

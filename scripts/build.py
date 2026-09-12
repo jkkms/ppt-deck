@@ -12,7 +12,7 @@ import argparse, os, sys
 import yaml
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from deckkit import (Deck, load_spec, col_x, span_w, content_r,
-                     block_h, line_count, resolve_y)
+                     block_h, block_w, line_count, resolve_y)
 
 WARN: list[str] = []
 
@@ -52,8 +52,18 @@ class L:
         """눈썹 + 제목. 두 좌표는 모든 장에서 고정이다 — 그래서 훑을 때 눈이 안 흔들린다."""
         d = self.d
         if sl.get("eyebrow"):
-            d.text(s, "micro", col_x(1), self.eyebrow_y, span_w(span), 15,
-                   sl["eyebrow"], color="accent", tag="eyebrow")
+            if sl.get("eyebrow_chip") or d.spec.get("eyebrow_style") == "chip":
+                SH = d.spec["shapes"]
+                cw = self.bh(sl["eyebrow"], 400, "small") * 0 + \
+                    line_count(sl["eyebrow"], 400, d.spec["styles"]["small"],
+                               d.spec["fonts"]["body"]) * 0
+                w = block_w(sl["eyebrow"], d.spec["styles"]["small"],
+                            d.spec["fonts"]["body"]) + 36
+                d.chip(s, col_x(1), self.eyebrow_y - 6, w, SH["eyebrow_chip_h"],
+                       sl["eyebrow"], color="accent", text_color="ground", style="small")
+            else:
+                d.text(s, "micro", col_x(1), self.eyebrow_y, span_w(span), 15,
+                       sl["eyebrow"], color="accent", tag="eyebrow")
         if sl.get("runner"):
             d.text(s, "micro", col_x(9), self.eyebrow_y, span_w(4), 15,
                    sl["runner"], color="muted", align="right", tag="runner")
@@ -323,6 +333,74 @@ def chain(d, s, m, sl):
                font_key="head", tag="chain-text")
 
 
+def panel_list(d, s, m, sl):
+    """전폭 tint 패널을 쌓는다. 실측 — 면담01 7쪽. 패널 높이는 내용이 정하고,
+    패널 사이는 27.5pt 로 고정. 각 패널은 번호 칩 + 주문장 + 하위 행으로 구성된다."""
+    g = L(d)
+    SH = d.spec["shapes"]
+    g.head(s, sl, span=12)
+    y = g.top
+    if sl.get("lead"):
+        lh = g.bh(sl["lead"], span_w(10), "small")
+        d.text(s, "small", col_x(1), y, span_w(10), lh, sl["lead"],
+               color="muted", tag="lead")
+        y += lh + 22
+
+    px, pw = col_x(1), span_w(12)
+    tx = px + SH["panel_text_x"]
+    for it in (sl.get("items") or [])[:4]:
+        lead_h = g.bh(it.get("text", ""), pw - SH["panel_text_x"] - SH["panel_pad_x"], "lead")
+        subs = it.get("subs") or []
+        ph = SH["panel_pad_y"] + lead_h + 8 + len(subs) * SH["subrow_step"] + SH["panel_pad_y"]
+        d.panel(s, px, y, pw, ph, radius=SH["panel_radius"])
+        d.chip(s, px + SH["panel_pad_x"] + 0.5, y + SH["panel_pad_y"],
+               SH["chip_w"], SH["chip_h"], str(it.get("index", "")),
+               color="accent", text_color="ground", style="small")
+        d.text(s, "lead", tx, y + SH["panel_pad_y"] + 1,
+               pw - SH["panel_text_x"] - SH["panel_pad_x"], lead_h,
+               it.get("text", ""), font_key="head", tag="panel-text")
+        sy = y + SH["panel_pad_y"] + lead_h + 8
+        for k, sub in enumerate(subs):
+            d.text(s, "body", tx, sy + k * SH["subrow_step"], 40, 18,
+                   f"{it.get('index', '')}-{k + 1}", color="accent", tag="panel-subnum")
+            d.text(s, "body", tx + SH["subrow_indent"], sy + k * SH["subrow_step"],
+                   pw - SH["panel_text_x"] - SH["subrow_indent"] - SH["panel_pad_x"], 18,
+                   str(sub), color="ink2", tag="panel-sub")
+        if y + ph > g.bottom + 0.5:
+            warn(f"slide {d._slide_i}: 패널이 본문 하한을 넘는다 — 항목을 줄여라")
+        y += ph + SH["panel_gap"]
+
+
+def card_grid(d, s, m, sl):
+    """세로 카드 그리드. 실측 — Dive 14쪽. 카드 156x245, 간격 14.4,
+    배지는 카드 가로 중앙, 제목·본문은 좌 13pt 안여백."""
+    g = L(d)
+    SH = d.spec["shapes"]
+    g.head(s, sl, span=12)
+    items = (sl.get("items") or [])[:5]
+    n = len(items)
+    if not 2 <= n <= 5:
+        raise SystemExit(f"card_grid 는 항목 2~5개만 지원한다 (받은 값: {n}).")
+    total = span_w(12)
+    cw = (total - SH["card_gap"] * (n - 1)) / n
+    ch = SH["card_h"]
+    y = g.top + max(0.0, (g.h - ch) * 0.35)
+    pad, bd = SH["card_pad"], SH["card_badge_d"]
+    for i, it in enumerate(items):
+        x = col_x(1) + i * (cw + SH["card_gap"])
+        d.panel(s, x, y, cw, ch, color=sl.get("card_color", "accent_tint"),
+                radius=SH["panel_radius"])
+        d.badge(s, x + cw / 2, y + 58, bd, "accent",
+                glyph=str(it.get("index", "")), glyph_color="ground", style="h2")
+        th = g.bh(it.get("title", ""), cw - pad * 2, "h1")
+        d.text(s, "h1", x + pad, y + 105, cw - pad * 2, th, it.get("title", ""),
+               tag="card-title")
+        if it.get("body"):
+            bh_ = g.bh(it["body"], cw - pad * 2, "small")
+            d.text(s, "small", x + pad, y + 172, cw - pad * 2, bh_, it["body"],
+                   color="ink2", tag="card-body")
+
+
 def table(d, s, m, sl):
     T = d.spec["table"]
     g = L(d)
@@ -396,6 +474,7 @@ def image_full(d, s, m, sl):
 
 LAYOUTS = {"cover": cover, "closing": closing, "section": section, "chain": chain,
            "statement": statement, "two_col": two_col, "cards": cards,
+           "panel_list": panel_list, "card_grid": card_grid,
            "data": data, "quote": quote, "table": table,
            "image_split": image_split, "image_full": image_full}
 INVERTED = {"section", "closing"}
