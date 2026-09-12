@@ -126,24 +126,25 @@ def data(d: Deck, s, m, sl):
     """숫자 3개를 똑같은 크기로 나란히 놓으면 그건 대시보드 위젯이지 슬라이드가 아니다.
     하나를 히어로로 세우고 나머지를 종속시킨다. 위계가 곧 주장이다."""
     g = d.g
-    _head(d, s, sl)
+    head_y = _head(d, s, sl)
     items = sl.get("items") or []
     if not items:
         return
     hero, subs = items[0], items[1:3]
     hw = g.w(7) if subs else g.w(10)
+    dy = max(0, head_y + 24 - 150)      # 제목이 길어지면 블록 전체를 그만큼 내린다
     hstyle = _fit(d, hero.get("value", ""), hw,
                   ["stat1", "stat2", "stat3", "stat_sub"], hero.get("unit"))
-    d.text(s, hstyle, g.margin_x, 150, hw, 190,
+    d.text(s, hstyle, g.margin_x, 150 + dy, hw, 190,
            str(hero.get("value", "")), anchor="bottom", suffix=hero.get("unit"),
            tag="stat-hero")
-    d.rule(s, g.margin_x, 358, hw, 4)
+    d.rule(s, g.margin_x, 358 + dy, hw, 4)
     if hero.get("caption"):
-        d.text(s, "small", g.margin_x, 374, hw, 76, hero["caption"], color="muted")
+        d.text(s, "small", g.margin_x, 374 + dy, hw, 76, hero["caption"], color="muted")
 
     x, w = g.x(8), g.w(4)
     for k, it in enumerate(subs):
-        top = 150 + k * 160
+        top = 150 + dy + k * 160
         d.rule(s, x, top, w, 1, color="muted")
         sstyle = _fit(d, it.get("value", ""), w, ["stat_sub", "stat_sub2", "h1"],
                       it.get("unit"), 0.45)
@@ -164,7 +165,7 @@ def quote(d: Deck, s, m, sl):
 def table(d: Deck, s, m, sl):
     """네이티브 표를 쓰지 않는다. 테마 표스타일(줄무늬 채움·테두리)이 곧 AI 티다."""
     g = d.g
-    _head(d, s, sl)
+    head_y = _head(d, s, sl)          # 제목이 두 줄이면 머리행이 밀려야 한다
     heads, rows = sl.get("headers") or [], sl.get("rows") or []
     lim = d.limits["table_rows"]
     if len(rows) > lim:
@@ -173,10 +174,11 @@ def table(d: Deck, s, m, sl):
     n = max(1, len(heads) or (len(rows[0]) if rows else 1))
     cw = (g.content_w - (n - 1) * 24) / n
     xs = [g.margin_x + i * (cw + 24) for i in range(n)]
+    hy = head_y + 30
     for i, h in enumerate(heads[:n]):
-        d.text(s, "label", xs[i], 150, cw, 16, str(h), color="accent")
-    d.rule(s, g.margin_x, 174, g.content_w, 2)
-    y0 = 186
+        d.text(s, "label", xs[i], hy, cw, 16, str(h), color="accent")
+    d.rule(s, g.margin_x, hy + 24, g.content_w, 2)
+    y0 = hy + 36
     rh = min(110, max(30, (g.bottom - 24 - y0) / max(1, len(rows))))  # 행수에 따라 숨통을 조절
     for r_i, r in enumerate(rows):
         y = y0 + r_i * rh
@@ -348,6 +350,19 @@ def build(outline_path, out_path=None, spec_path=None, embed=False):
         o = yaml.safe_load(f)
     spec = load_spec(spec_path)
     m = o.get("meta") or {}
+
+    # 이미지 경로는 아웃라인 파일 기준으로 푼다. 작업 디렉터리 기준이면
+    # 같은 아웃라인이 어디서 실행하느냐에 따라 되거나 안 되거나 한다.
+    base = os.path.dirname(os.path.abspath(outline_path))
+    def _abs(v):
+        v = os.path.expanduser(str(v))
+        return v if os.path.isabs(v) else os.path.normpath(os.path.join(base, v))
+    for sl in (o.get("slides") or []):
+        if sl.get("image"):
+            sl["image"] = _abs(sl["image"])
+        for it in (sl.get("items") or []):
+            if it.get("image"):
+                it["image"] = _abs(it["image"])
     d = Deck(spec, palette=m.get("palette"), density=m.get("density"))
 
     slides = o.get("slides") or []

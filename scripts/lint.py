@@ -40,9 +40,32 @@ def texts_of(sl) -> list[str]:
     return out
 
 
+def glyph_gaps(spec, texts):
+    """폰트에 없는 문자를 찾는다. PowerPoint는 이걸 두부(□)로 그린다.
+
+    Pretendard에는 ⊃ ⊂ ✕ ∴ ∵ ⊙ 가 없다 — 수학·논리 기호를 쓸 때 반드시 걸린다.
+    렌더해 보기 전에는 눈치채기 어렵고, 미리보기에서도 대체 글꼴로 그려져 속기 쉽다.
+    """
+    import metrics as _m
+    tbls = _m.load() or {}
+    if not tbls:
+        return {}
+    gaps = {}
+    for t in texts:
+        for ch in str(t):
+            if ch.isspace() or "가" <= ch <= "힣" or ord(ch) < 0x80:
+                continue
+            missing = [n for n, tb in tbls.items() if str(ord(ch)) not in tb["adv"]]
+            if len(missing) == len(tbls):
+                gaps.setdefault(ch, 0)
+                gaps[ch] += 1
+    return gaps
+
+
 def main(path, spec_path=None):
     spec = load_spec(spec_path)
     o = yaml.safe_load(open(path, encoding="utf-8"))
+    base = os.path.dirname(os.path.abspath(path))
     m = o.get("meta") or {}
     slides = o.get("slides") or []
     dens = m.get("density") or spec["density"]
@@ -86,9 +109,13 @@ def main(path, spec_path=None):
 
         if lay in ("image_split", "image_full") and not sl.get("image"):
             err(i, "IMAGE", f"'{lay}' 인데 image 경로가 없다")
-        for path in ([sl.get("image")] + [it.get("image") for it in (sl.get("items") or [])]):
-            if path and not os.path.exists(os.path.expanduser(str(path))):
-                err(i, "IMAGE", f"이미지 파일이 없다: {path}")
+        for ip in ([sl.get("image")] + [it.get("image") for it in (sl.get("items") or [])]):
+            if not ip:
+                continue
+            q = os.path.expanduser(str(ip))
+            q = q if os.path.isabs(q) else os.path.join(base, q)   # 아웃라인 파일 기준
+            if not os.path.exists(q):
+                err(i, "IMAGE", f"이미지 파일이 없다: {ip}")
         if lay == "cards" and len(sl.get("items") or []) > 6:
             err(i, "DENSITY", f"카드 {len(sl['items'])}개 > 6개. 한 화면에 여섯 덩이 넘게 놓으면 아무도 안 읽는다")
         if lay == "two_col" and not sl.get("lead") and len(bl) <= 2:
@@ -131,6 +158,12 @@ def main(path, spec_path=None):
         Lt = [len(t) for t in titles]
         if len(titles) >= 4 and max(Lt) - min(Lt) <= 1:
             wrn(0, "PARALLEL", f"제목 길이가 {Lt}로 전부 같다")
+
+    gaps = glyph_gaps(spec, [t for sl in slides for t in texts_of(sl)]
+                      + [str(v) for v in m.values()])
+    for ch, cnt in sorted(gaps.items(), key=lambda kv: -kv[1]):
+        err(0, "GLYPH", f"'{ch}' (U+{ord(ch):04X}) 가 폰트에 없다 — PowerPoint가 두부(□)로 그린다. "
+                        f"{cnt}곳에서 쓰였다")
 
     # --- 출력 ---------------------------------------------------------
     print(f"ppt-deck lint — {path}  ({n} slides, density={dens})")
