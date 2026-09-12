@@ -44,9 +44,33 @@ class L:
                                        "content_y": 117, "content_bottom": 484}
         self.eyebrow_y, self.title_y = r["eyebrow_y"], r["title_y"]
         self.top, self.bottom = r["content_y"], r["content_bottom"]
+        self.block = r.get("block_y", r["content_y"])   # 도형 블록 시작 (실측 176)
         self.h = self.bottom - self.top
         self.gap = d.spec["anchors"]["gap_block"]
         self.d = d
+
+    def balance(self, text, w, style):
+        """두 줄로 접히는 제목의 줄 길이를 고르게 맞춘다 (CSS text-wrap: balance 의 대응).
+        한 줄이 길고 다음 줄에 두 글자만 남는 제목은 그 자체로 조잡해 보인다."""
+        t = str(text)
+        if "\n" in t:
+            return t
+        st = self.d.spec["styles"][style]
+        fn = self.d.spec["fonts"][st["font"]]
+        if line_count(t, w, st, fn) != 2:
+            return t
+        words = t.split(" ")
+        if len(words) < 2:
+            return t
+        best, gap = None, 1e9
+        for k in range(1, len(words)):
+            a, b = " ".join(words[:k]), " ".join(words[k:])
+            if line_count(a, w, st, fn) > 1 or line_count(b, w, st, fn) > 1:
+                continue
+            g = abs(block_w(a, st, fn) - block_w(b, st, fn))
+            if g < gap:
+                best, gap = a + "\n" + b, g
+        return best or t
 
     def head(self, s, sl, title_style="h1", span=9):
         """눈썹 + 제목. 두 좌표는 모든 장에서 고정이다 — 그래서 훑을 때 눈이 안 흔들린다."""
@@ -69,9 +93,10 @@ class L:
                    sl["runner"], color="muted", align="right", tag="runner")
         if sl.get("title"):
             st = d.spec["styles"][title_style]
-            h = block_h(sl["title"], span_w(span), st, d.spec["fonts"][st["font"]])
+            t = self.balance(sl["title"], span_w(span), title_style)
+            h = block_h(t, span_w(span), st, d.spec["fonts"][st["font"]])
             d.text(s, title_style, col_x(1), self.title_y, span_w(span), h,
-                   str(sl["title"]).split("\n"), tag="title")
+                   t.split("\n"), tag="title")
 
     def bh(self, text, w, style):
         st = self.d.spec["styles"][style]
@@ -88,8 +113,9 @@ def cover(d, s, m, sl):
     mh = g.bh("\n".join(meta), span_w(6), "small") if meta else 0
     title = _t(sl, "title") or m.get("title", "")
     th = g.bh(title, span_w(9), "cover")
-    y_meta = g.bottom - mh
-    y_title = y_meta - g.gap - th
+    total = th + (g.gap + mh if mh else 0)
+    y_title = resolve_y(total, d.spec, top=g.top)
+    y_meta = y_title + th + g.gap
     d.text(s, "cover", col_x(1), y_title, span_w(9), th, title.split("\n"), tag="title")
     if meta:
         d.text(s, "small", col_x(1), y_meta, span_w(6), mh, meta,
@@ -111,7 +137,8 @@ def closing(d, s, m, sl):
                tag="ledger-value")
     title = _t(sl, "title") or "감사합니다"
     th = g.bh(title, span_w(7), "cover")
-    d.text(s, "cover", col_x(1), g.bottom - th, span_w(7), th, title, tag="title")
+    d.text(s, "cover", col_x(1), resolve_y(th, d.spec, top=g.top), span_w(7), th,
+           title, tag="title")
 
 
 def section(d, s, m, sl):
@@ -125,8 +152,8 @@ def section(d, s, m, sl):
                color="muted", align="right", tag="runner")
     title = _t(sl, "title")
     th = g.bh(title, span_w(9), "cover")
-    d.text(s, "cover", col_x(1), g.bottom - th, span_w(9), th, title.split("\n"),
-           tag="title")
+    d.text(s, "cover", col_x(1), resolve_y(th, d.spec, top=g.top), span_w(9), th,
+           title.split("\n"), tag="title")
 
 
 def statement(d, s, m, sl):
@@ -137,7 +164,7 @@ def statement(d, s, m, sl):
     body = _paras(sl, "body")
     bh_ = g.bh("\n".join(body), span_w(7), "lead") if body else 0
     total = th + (g.gap + bh_ if bh_ else 0)
-    y = resolve_y(total, d.spec)
+    y = resolve_y(total, d.spec, top=g.top)
     acc = sl.get("accent_lines") or []
     d.text(s, "display", col_x(1), y, span_w(10), th, text.split("\n"),
            accent_paras=tuple(acc), tag="statement")
@@ -159,15 +186,26 @@ def two_col(d, s, m, sl):
     sh_ = g.bh(sub, rw, "h2") if sub else 0
     sbh = g.bh(subb, rw, "body") if subb else 0
     right_total = rh + (g.gap + sh_ if sh_ else 0) + (8 + sbh if sbh else 0)
-    y = resolve_y(max(lh, right_total), d.spec)
+    # 좌·우 컬럼을 같은 기준선에 세우고, 남는 높이의 38%만 위에 둔다
+    # 왼쪽에 리드가 없으면 2단이 아니다 — 빈 컬럼을 남기지 말고 한 단으로 넓게 쓴다
+    if not lead:
+        rw = span_w(9)
+        rh = g.bh("\n".join(body), rw, "body") if body else 0
+        sh_ = g.bh(sub, rw, "h2") if sub else 0
+        sbh = g.bh(subb, rw, "body") if subb else 0
+        right_total = rh + (g.gap + sh_ if sh_ else 0) + (8 + sbh if sbh else 0)
+        col = 1
+    else:
+        col = 6
+    y = resolve_y(max(lh, right_total), d.spec, top=g.block)
     if lh:
         d.text(s, "lead", col_x(1), y, lw, lh, lead, color="muted", tag="lead")
     if rh:
-        d.text(s, "body", col_x(6), y, rw, rh, body, color="ink2", tag="body")
+        d.text(s, "body", col_x(col), y, rw, rh, body, color="ink2", tag="body")
     if sh_:
-        d.text(s, "h2", col_x(6), y + rh + g.gap, rw, sh_, sub, tag="subhead")
+        d.text(s, "h2", col_x(col), y + rh + g.gap, rw, sh_, sub, tag="subhead")
         if sbh:
-            d.text(s, "body", col_x(6), y + rh + g.gap + sh_ + 8, rw, sbh, subb,
+            d.text(s, "body", col_x(col), y + rh + g.gap + sh_ + 8, rw, sbh, subb,
                    color="ink2", tag="subbody")
 
 
@@ -186,27 +224,29 @@ def cards(d, s, m, sl):
     BIAS = 0.38      # 남는 높이의 38%만 위에 둔다 — 정중앙보다 살짝 위가 안정적이다
 
     def cell_h(it, w):
-        h = d.spec["shapes"]["badge_d_sub"] + 10 + g.bh(it.get("title", ""), w, "h2")
+        h = d.spec["shapes"]["badge_d"] + 12 + g.bh(it.get("title", ""), w, tstyle)
         if it.get("body"):
             h += 8 + g.bh(it["body"], w, "small")
         return h
 
     SH = d.spec["shapes"]
 
+    tstyle = "h1" if n <= 4 else "h2"
+
     def cell(it, x, w, y):
-        dd = SH["badge_d_sub"]
+        dd = SH["badge_d"]
         d.badge(s, x + dd / 2, y + dd / 2, dd, "accent",
                 glyph=str(it.get("index", "")), glyph_color="ground", style="small")
-        th = g.bh(it.get("title", ""), w, "h2")
-        d.text(s, "h2", x, y + dd + 10, w, th, it.get("title", ""), tag="card-title")
+        th = g.bh(it.get("title", ""), w, tstyle)
+        d.text(s, tstyle, x, y + dd + 12, w, th, it.get("title", ""), tag="card-title")
         if it.get("body"):
             bh_ = g.bh(it["body"], w, "small")
-            d.text(s, "small", x, y + SH["badge_d_sub"] + 10 + th + 8, w, bh_,
+            d.text(s, "small", x, y + SH["badge_d"] + 12 + th + 8, w, bh_,
                    it["body"], color="muted", tag="card-body")
 
     # 행은 실제 높이로 위에서부터 쌓는다. 남은 높이에 균등 분배하면 흩어져 보인다.
     def place(total):
-        return g.top + max(0.0, (g.h - total) * BIAS)
+        return g.block + max(0.0, (g.bottom - g.block - total) * BIAS)
 
     if mode == "pair":
         cols = ((1, 5), (7, 6))
@@ -259,7 +299,7 @@ def data(d, s, m, sl):
     ch = g.bh(cap, span_w(5) if subs else span_w(7), "body") if cap else 0
     hero_total = hh + 14 + (2 + 12 + ch if ch else 0)
     subs_h = (len(subs) - 1) * 66 + 58 if subs else 0
-    y = resolve_y(max(hero_total, subs_h), d.spec)   # 두 컬럼을 같은 기준선에 세운다
+    y = resolve_y(max(hero_total, subs_h), d.spec, top=g.block)
     d.text(s, "hero", col_x(1), y, hw, hh, str(hero.get("value", "")),
            suffix=hero.get("unit"), suffix_style="h1", tag="hero")
     d.hero_rule(s, col_x(1), y + hh + 14, hw)
@@ -281,10 +321,10 @@ def quote(d, s, m, sl):
     g = L(d)
     text = _t(sl, "text")
     th = g.bh(text, span_w(8), "h1")
-    # 아래에서부터 쌓는다 — 부기 하단이 본문 하한에 정확히 닿는다
-    y_note = g.bottom - 18 if sl.get("note") else g.bottom
-    y_src = y_note - (18 if sl.get("source") else 0)
-    y = y_src - 20 - th
+    src_h = (18 if sl.get("source") else 0) + (18 if sl.get("note") else 0)
+    y = resolve_y(th + 20 + src_h, d.spec, top=g.top)
+    y_src = y + th + 20
+    y_note = y_src + (18 if sl.get("source") else 0)
     d.text(s, "h1", col_x(2), y, span_w(8), th, text, tag="quote")
     if sl.get("source"):
         d.text(s, "micro", col_x(2), y_src, span_w(5), 15, sl["source"],
@@ -304,7 +344,7 @@ def chain(d, s, m, sl):
     if sl.get("lead"):
         lh = g.bh(sl["lead"], span_w(10), "lead")
         d.text(s, "lead", col_x(1), y, span_w(10), lh, sl["lead"], color="muted", tag="lead")
-        y += lh + 30
+    y = max(y + 30, g.block)
 
     bx = col_x(1) + 40                      # 배지 중심 x (실측 98)
     if sl.get("panel"):
@@ -344,7 +384,7 @@ def panel_list(d, s, m, sl):
         lh = g.bh(sl["lead"], span_w(10), "small")
         d.text(s, "small", col_x(1), y, span_w(10), lh, sl["lead"],
                color="muted", tag="lead")
-        y += lh + 22
+    y = max(y, g.block)
 
     px, pw = col_x(1), span_w(12)
     tx = px + SH["panel_text_x"]
@@ -372,8 +412,12 @@ def panel_list(d, s, m, sl):
 
 
 def card_grid(d, s, m, sl):
-    """세로 카드 그리드. 실측 — Dive 14쪽. 카드 156x245, 간격 14.4,
-    배지는 카드 가로 중앙, 제목·본문은 좌 13pt 안여백."""
+    """가로로 늘어선 카드. 높이는 내용이 정하고, 채움은 강조할 카드 하나에만 준다.
+
+    모든 블록에 같은 테두리·채움·반경을 찍으면 위계가 평평해진다 — 카드는
+    '따로 떨어진 물체'라는 뜻이라, 전부에 쓰면 아무것도 구별되지 않는다.
+    기본은 채움 없이 배지와 여백만으로 가르고, emphasis 로 지정한 하나만 들어올린다.
+    """
     g = L(d)
     SH = d.spec["shapes"]
     g.head(s, sl, span=12)
@@ -383,22 +427,36 @@ def card_grid(d, s, m, sl):
         raise SystemExit(f"card_grid 는 항목 2~5개만 지원한다 (받은 값: {n}).")
     total = span_w(12)
     cw = (total - SH["card_gap"] * (n - 1)) / n
-    ch = SH["card_h"]
-    y = g.top + max(0.0, (g.h - ch) * 0.35)
-    pad, bd = SH["card_pad"], SH["card_badge_d"]
+    pad, bd = SH["card_pad"], SH["badge_d"]
+    emph = sl.get("emphasis")
+    numbered = any(it.get("index") for it in items)
+
+    inner = cw - pad * 2
+    tstyle = "h1" if n <= 4 else "h2"     # 실측 — 5열 카드도 제목 32pt 였다
+    th_max = max(g.bh(it.get("title", ""), inner, tstyle) for it in items)
+    bh_max = max((g.bh(it["body"], inner, "small") for it in items if it.get("body")),
+                 default=0)
+    ch = pad + (bd + 14 if numbered else 0) + th_max + (10 + bh_max if bh_max else 0) + pad
+    y = g.block + max(0.0, (g.bottom - g.block - ch) * 0.30)
+
     for i, it in enumerate(items):
         x = col_x(1) + i * (cw + SH["card_gap"])
-        d.panel(s, x, y, cw, ch, color=sl.get("card_color", "accent_tint"),
-                radius=SH["panel_radius"])
-        d.badge(s, x + cw / 2, y + 58, bd, "accent",
-                glyph=str(it.get("index", "")), glyph_color="ground", style="h2")
-        th = g.bh(it.get("title", ""), cw - pad * 2, "h1")
-        d.text(s, "h1", x + pad, y + 105, cw - pad * 2, th, it.get("title", ""),
-               tag="card-title")
+        lift = (emph is not None and i == emph)
+        if lift:
+            d.panel(s, x, y, cw, ch, color="figure", radius=SH["panel_radius"])
+        yy = y + pad
+        if numbered:
+            d.badge(s, x + pad + bd / 2, yy + bd / 2, bd,
+                    "accent_soft" if lift else "accent",
+                    glyph=str(it.get("index", "")),
+                    glyph_color="figure" if lift else "ground", style="small")
+            yy += bd + 14
+        d.text(s, tstyle, x + pad, yy, inner, th_max, it.get("title", ""),
+               color="ground" if lift else "figure", tag="card-title")
+        yy += th_max + 10
         if it.get("body"):
-            bh_ = g.bh(it["body"], cw - pad * 2, "small")
-            d.text(s, "small", x + pad, y + 172, cw - pad * 2, bh_, it["body"],
-                   color="ink2", tag="card-body")
+            d.text(s, "small", x + pad, yy, inner, bh_max, it["body"],
+                   color="ground" if lift else "muted", tag="card-body")
 
 
 def timeline(d, s, m, sl):
@@ -415,7 +473,7 @@ def timeline(d, s, m, sl):
     nw = total / n * 0.85
     step = (total - nw) / (n - 1)
     body_h = 50 + SH["node_desc_dy"] + 58
-    axis_y = g.top + 50 + max(0.0, (g.h - body_h) * 0.40)
+    axis_y = g.block + 62
     d.divider(s, col_x(1) + SH["node_d"] / 2, axis_y,
               step * (n - 1), color="faint")
     live = sl.get("live_from", max(1, n - 1))       # 이 마디부터 accent
@@ -448,9 +506,9 @@ def stair(d, s, m, sl):
         raise SystemExit(f"stair 는 단계 3~5개만 지원한다 (받은 값: {n}).")
     total = span_w(12)
     ph, step = SH["stair_h"], SH["stair_step"]
-    y0 = g.top + max(0.0, (g.h - (step * (n - 1) + ph) - 28) * 0.30)
+    y0 = g.block
     has_label = any(it.get("label") for it in items)
-    lab_x = col_x(1) + total - 194 if has_label else None
+    lab_x = col_x(1) + total * SH["stair_w_max"] + 28 if has_label else None
     for i, it in enumerate(items):
         frac = SH["stair_w_min"] + (SH["stair_w_max"] - SH["stair_w_min"]) * i / (n - 1)
         w = total * frac
@@ -471,7 +529,8 @@ def stair(d, s, m, sl):
             d.text(s, "small", col_x(1) + SH["stair_text_x"], y + 38, tw, 18,
                    it["body"], color=bc, tag="stair-body")
         if lab_x and it.get("label"):
-            d.text(s, "h2", lab_x, y + ph / 2 - 14, 194, 28, it["label"],
+            d.text(s, "h2", lab_x, y + ph / 2 - 14,
+                   col_x(1) + total - lab_x, 28, it["label"],
                    color="ink2", tag="stair-label")
     if sl.get("footnote"):
         d.text(s, "small", col_x(1), g.bottom - 20, span_w(12), 19,
@@ -489,7 +548,7 @@ def compare(d, s, m, sl):
         raise SystemExit("compare 는 항목이 정확히 2개여야 한다.")
     ph, gap = SH["compare_h"], SH["compare_gap"]
     pw = (span_w(12) - gap) / 2
-    y = g.top + max(0.0, (g.h - ph) * 0.30)
+    y = g.block
     for i, it in enumerate(pair):
         x = col_x(1) + i * (pw + gap)
         good = bool(it.get("good"))
@@ -522,7 +581,7 @@ def nest(d, s, m, sl):
     if len(rings) != 3:
         raise SystemExit("nest 는 고리가 정확히 3개여야 한다.")
     lw = span_w(6)
-    ox, oy = col_x(1) + 18, g.top + 62
+    ox, oy = col_x(1) + 18, g.block
     ow, oh = lw - 36, 277.0
     tones = ["accent_pale", "accent_mid", "accent"]
     for k in range(3):
@@ -532,12 +591,12 @@ def nest(d, s, m, sl):
         y = oy + k * 42
         d.oval(s, x, y, w, h, color=tones[k])
         # 가장 안쪽 고리는 라벨을 세로 중앙에 — 바깥 고리는 위쪽에 얹어 겹침을 피한다
-        ly = y + (h - 24) / 2 if k == 2 else y + 13
+        ly = y + (h - 24) / 2 if k == 2 else y + h * 0.10
         d.text(s, "lead", x, ly, w, 24, str(rings[k].get("name", "")),
                align="center", color="ground" if k == 2 else "figure", tag="ring-label")
 
     rx, rw = col_x(7), span_w(6)
-    pyy, phh = g.top + 62, 80
+    pyy, phh = g.block, 80
     for k, r in enumerate(rings):
         y = pyy + k * (phh + 9)
         d.panel(s, rx, y, rw, phh, color="accent_tint", radius=SH["panel_radius"])
@@ -566,19 +625,22 @@ def table(d, s, m, sl):
         warn(f"slide {d._slide_i}: 표 {len(rows)}행 > 한도 {lim}행 — 슬라이드를 나눠라")
     rows = rows[:lim]
     cols, pad = table_columns(d, n), T["pad_x"]
-    hy = g.top
+    hy = g.block
+    avail = g.bottom - hy - T["header_h"] - (26 if sl.get("footnote") else 0)
+    row_h = min(52.0, max(T["row_h"], avail / max(1, len(rows))))
     d.plate(s, col_x(1), hy, span_w(12), T["header_h"], color="figure")
     for (x, w, align, tx), h in zip(cols, heads[:n]):
         d.text(s, "small", tx if align == "left" else x, hy + 7, w - pad, 18,
                str(h), color="ground", align=align, tag="th")
     for i, row in enumerate(rows):
-        y = hy + T["header_h"] + i * T["row_h"]
+        y = hy + T["header_h"] + i * row_h
         for (x, w, align, tx), cell in zip(cols, row[:n]):
-            d.text(s, "body", tx if align == "left" else x, y + 8, w - pad, 20,
+            d.text(s, "body", tx if align == "left" else x,
+                   y + (row_h - 20) / 2, w - pad, 20,
                    str(cell), align=align, color="figure" if align == "left" else "ink2",
                    font_key="head" if align == "right" else None, tag="td")
         if i < len(rows) - 1:
-            d.table_rule(s, col_x(1), y + T["row_h"] - 0.5, span_w(12))
+            d.table_rule(s, col_x(1), y + row_h - 0.5, span_w(12))
     if sl.get("footnote"):
         d.text(s, "micro", col_x(1), g.bottom - 16, span_w(8), 15, sl["footnote"],
                color="muted", tag="footnote")
@@ -604,7 +666,7 @@ def image_split(d, s, m, sl):
     body = _paras(sl, "bullets", "body")
     if body:
         bh_ = g.bh("\n".join(body), span_w(6), "body")
-        d.text(s, "body", col_x(1), resolve_y(bh_, d.spec), span_w(6), bh_, body,
+        d.text(s, "body", col_x(1), resolve_y(bh_, d.spec, top=g.top), span_w(6), bh_, body,
                color="ink2", tag="body")
 
 

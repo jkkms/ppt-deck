@@ -83,10 +83,18 @@ def render(man, idx):
                 lines.append(None); meta.append((i, False))
 
         real = [l for l in lines if l is not None]
-        total = len(real) * size * lead + (b.get("space_after") or 0) * (len(lines) - len(real))
-        y0 = {"top": b["y"], "middle": b["y"] + (b["h"] - total) / 2,
-              "bottom": b["y"] + b["h"] - total}[b.get("anchor", "top")]
-        y = y0 + size * lead * 0.78            # 대략의 베이스라인
+        if b.get("exact_center"):
+            # 도형 안 글리프: 라인박스를 도형 중앙에 놓고 베이스라인을 메트릭으로 잡는다
+            ASC, DESC = 0.952, 0.241
+            lb = size * (ASC + DESC)
+            y0 = b["y"] + (b["h"] - lb * len(real)) / 2
+            y = y0 + size * ASC
+            lead = ASC + DESC
+        else:
+            total = len(real) * size * lead + (b.get("space_after") or 0) * (len(lines) - len(real))
+            y0 = {"top": b["y"], "middle": b["y"] + (b["h"] - total) / 2,
+                  "bottom": b["y"] + b["h"] - total}[b.get("anchor", "top")]
+            y = y0 + size * lead * 0.78            # 대략의 베이스라인
 
         for k, ln in enumerate(lines):
             if ln is None:
@@ -168,7 +176,7 @@ def raster(man, idx, scale=1.0):
         box = [sh["x"] * scale, sh["y"] * scale,
                (sh["x"] + sh["w"]) * scale, (sh["y"] + sh["h"]) * scale]
         kind = sh.get("kind")
-        if kind == "badge":
+        if kind in ("badge", "node", "ring"):
             dr.ellipse(box, fill="#" + sh["color"])
         elif kind == "panel":
             dr.rounded_rectangle(box, radius=sh.get("radius", 5) * scale,
@@ -190,10 +198,18 @@ def raster(man, idx, scale=1.0):
             if b.get("space_after") and i < len(b["text"]) - 1:
                 lines.append(None)
         real = [l for l in lines if l is not None]
-        total = len(real) * size * lead + (b.get("space_after") or 0) * (len(lines) - len(real))
-        y0 = {"top": b["y"], "middle": b["y"] + (b["h"] - total) / 2,
-              "bottom": b["y"] + b["h"] - total}[b.get("anchor", "top")]
-        y = y0 + size * lead * 0.78
+        if b.get("exact_center"):
+            # 도형 안 글리프: 라인박스를 도형 중앙에 놓고 베이스라인을 메트릭으로 잡는다
+            ASC, DESC = 0.952, 0.241
+            lb = size * (ASC + DESC)
+            y0 = b["y"] + (b["h"] - lb * len(real)) / 2
+            y = y0 + size * ASC
+            lead = ASC + DESC
+        else:
+            total = len(real) * size * lead + (b.get("space_after") or 0) * (len(lines) - len(real))
+            y0 = {"top": b["y"], "middle": b["y"] + (b["h"] - total) / 2,
+                  "bottom": b["y"] + b["h"] - total}[b.get("anchor", "top")]
+            y = y0 + size * lead * 0.78
 
         for k, ln in enumerate(lines):
             if ln is None:

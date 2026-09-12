@@ -198,21 +198,17 @@ def block_h(text: str, w: float, style: dict, font: str | None = None) -> float:
 
 
 # ---------------------------------------------------------------- 정렬 엔진
-def resolve_y(block_height: float, spec: dict) -> float:
-    """본문 블록 상단 y. 중간값은 없다 — 상단 아니면 하단.
+def resolve_y(block_height: float, spec: dict, top: float | None = None) -> float:
+    """본문 블록 상단 y. 남는 높이의 block_bias 만큼만 위에 두고 나머지는 아래로.
 
-    눈썹·제목은 이 판정과 무관하게 rhythm_y 의 고정 좌표에 놓인다. 빈 공간이
-    화면 아래가 아니라 제목과 본문 사이로 옮겨가면서 프레임으로 읽힌다.
+    하단 정렬(bottom=484)은 폐기했다 — 내용이 적은 장에서 글자가 왼쪽 아래로 몰려
+    화면이 버려진 것처럼 보였다. 정중앙보다 살짝 위가 안정적이다.
     """
     r = spec.get("rhythm_y")
-    if r:
-        top, bottom = r["content_y"], r["content_bottom"]
-    else:
-        top, bottom = 56.0, 484.0
-    avail = bottom - top
-    if block_height / avail >= spec["anchors"]["fill_threshold"]:
-        return top
-    return bottom - block_height
+    t = top if top is not None else (r["content_y"] if r else 56.0)
+    bottom = r["content_bottom"] if r else 484.0
+    bias = spec["anchors"].get("block_bias", 0.38)
+    return t + max(0.0, (bottom - t - block_height) * bias)
 
 
 # ---------------------------------------------------------------- §12 사각형 가드
@@ -456,10 +452,9 @@ class Deck:
         self.shapes.append(dict(slide=self._slide_i, x=x, y=y, w=w, h=h,
                                 color=self.c(color), kind="chip", radius=radius))
         if text:
-            st = self.spec["styles"][style]
-            self.text(s, style, x, y + (h - st["size"] * st["leading"]) / 2, w,
-                      st["size"] * st["leading"] + 2, str(text), color=text_color,
-                      align="center", tag="chip-text")
+            self.text(s, style, x, y, w, h, str(text), color=text_color,
+                      align="center", anchor="middle", exact_center=True,
+                      tag="chip-text")
         return sh
 
     def divider(self, s, x, y, w, color="hairline"):
@@ -478,9 +473,12 @@ class Deck:
         self.shapes.append(dict(slide=self._slide_i, x=x, y=y, w=d, h=d,
                                 color=self.c(color), kind=kind))
         if glyph:
-            st = self.spec["styles"][style]
-            self.text(s, style, x, cy - st["size"] * 0.72, d, st["size"] * 1.45,
-                      str(glyph), color=glyph_color, align="center", tag="badge-glyph")
+            # 박스를 원과 정확히 같은 사각형으로 두고 세로 중앙 앵커에 맡긴다.
+            # Pretendard 는 라인박스 중심(0.3555em)과 글리프 잉크 중심(0.3535em)이
+            # 거의 같아서, 이렇게만 하면 광학 중앙과 0.2% 안에서 일치한다.
+            self.text(s, style, x, y, d, d, str(glyph), color=glyph_color,
+                      align="center", anchor="middle", exact_center=True,
+                      tag="badge-glyph")
         return sh
 
     def oval(self, s, x, y, w, h, color="accent_pale"):
@@ -560,7 +558,8 @@ class Deck:
     def text(self, s, style: str, x, y, w, h, content, *,
              color="figure", align="left", anchor="top",
              space_after=0, tag="", suffix=None, suffix_style=None,
-             suffix_color="figure", font_key=None, accent_paras=()):
+             suffix_color="figure", font_key=None, accent_paras=(),
+             exact_center=False):
         """content: str 또는 list[str](문단들). style은 spec.styles의 키여야 한다."""
         st = self.spec["styles"][style]
         font = self.spec["fonts"][font_key or st["font"]]
@@ -578,7 +577,9 @@ class Deck:
             p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
             p.alignment = {"left": PP_ALIGN.LEFT, "right": PP_ALIGN.RIGHT,
                            "center": PP_ALIGN.CENTER}[align]
-            p.line_spacing = st["leading"]
+            # 정확 중앙 모드에서는 행간을 1.0 으로 둔다. leading 배수를 주면
+            # PowerPoint 가 여분을 라인 위쪽에 몰아 넣어 글자가 아래로 내려간다.
+            p.line_spacing = 1.0 if exact_center else st["leading"]
             if space_after and i < len(paras) - 1:
                 p.space_after = Pt(space_after)
             r = p.add_run(); r.text = str(ptext)
@@ -605,6 +606,7 @@ class Deck:
         self.manifest.append(dict(slide=self._slide_i, tag=tag or style, style=style,
                                   x=x, y=y, w=w, h=h, size=st["size"],
                                   leading=st["leading"],                                   space_after=space_after, extra_pt=extra_pt,
+                                  exact_center=exact_center,
                                   font=font, tracking=st.get("tracking", 0),
                                   color=self.c(color), align=align, anchor=anchor,
                                   suffix=str(suffix) if suffix else None,

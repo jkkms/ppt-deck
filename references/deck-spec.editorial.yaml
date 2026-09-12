@@ -20,6 +20,7 @@ palettes:            # hex 12개 전부 원본 그대로
   blueprint:   {ground: "122033", figure: "EDE6D6", accent: "D98E32"}
   graphite:    {ground: "FAFAF8", figure: "22252A", accent: "6E7F32"}
   dive:        {ground: "0E1A2B", figure: "FFFFFF", accent: "1B7FD4"}
+  forest:      {ground: "FBFAF7", figure: "161C18", accent: "1F5D42"}
 active_palette: letterpress
 
 # --- 색 파생 규칙 ------------------------------------------------------------

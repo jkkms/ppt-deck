@@ -23,16 +23,19 @@ grid:
 rhythm_y:
   eyebrow_y: 45
   title_y:   68
-  content_y: 117      # 본문 영역 117..495 (378pt)
+  content_y: 117      # 본문 텍스트(리드) 시작 — 실측
+  block_y:   176      # 도형 블록 시작 — 실측 패널 상단이 168~188 에 몰려 있다
   content_bottom: 495
 
 palettes:
+  # 주의 — letterpress(크림 #F4F1EA + 테라코타)는 frontend-design·artifact-design 이
+  # "AI 생성 디자인이 몰리는 세 가지 look" 중 하나로 명시한 조합이다. 기본값에서 뺐다.
   letterpress: {ground: "F4F1EA", figure: "1B1B1F", accent: "C8452D"}
   blueprint:   {ground: "122033", figure: "EDE6D6", accent: "D98E32"}
   graphite:    {ground: "FAFAF8", figure: "22252A", accent: "6E7F32"}
   dive:        {ground: "0E1A2B", figure: "FFFFFF", accent: "1B7FD4"}
   forest:      {ground: "FBFAF7", figure: "161C18", accent: "1F5D42"}   # 면접대비 덱 실측
-active_palette: letterpress
+active_palette: forest
 
 # --- 색: 3색 -> 4단 톤 램프. 새 hex 는 생기지 않는다(전부 figure->ground 파생) ----
 # 실측 근거 — 면접대비 덱은 161C18 / 3D4841 / 6B776F / 97A29B 의 4단 램프를 쓴다.
@@ -80,7 +83,9 @@ fonts:
   label:   "Pretendard Medium"
 
 anchors:
-  fill_threshold: 0.58   # 본문 블록 / 378 >= 0.58 -> 상단(117), 미만 -> 하단(495)
+  # 하단 정렬은 쓰지 않는다. 빈 화면에 글자를 왼쪽 아래로 몰면 버려진 것처럼 보인다.
+  # 남는 높이의 block_bias 만큼만 위에 두어 광학 중심에 앉힌다(정중앙보다 살짝 위).
+  block_bias: 0.38
   gap_block: 24
 
 plates:

@@ -2,7 +2,7 @@
 # 더미 문구는 HANDOFF §8 의 것을 그대로 썼다. 좌표 대조용이다.
 meta:
   title: "재고 예측을\n다시 설계한다"
-  palette: letterpress
+  palette: forest
   density: speaker
   output: "out/deck.pptx"
 
@@ -30,12 +30,12 @@ slides:
   - layout: two_col
     eyebrow: "03 / 설계"
     title: "무너지는\n세 지점"
-    lead: "루브릭이 아니라 루브릭을 읽는 방식이 흔들린다. 세 지점 모두 사람이 아니라 절차의 문제로 관찰됐다."
+    lead: "사람이 아니라 절차의 문제다."
     bullets:
-      - "발주 승인은 주 단위로 모이지만 판매 데이터는 일 단위로 들어온다. 두 주기가 어긋나는 구간에서 예측은 항상 과소 추정된다."
-      - "창고 실사 결과가 시스템에 반영되기까지 평균 사흘이 걸리고, 그 사흘은 어느 장부에도 남지 않는다."
+      - "발주 승인은 주 단위, 판매 데이터는 일 단위로 들어온다. 두 주기가 어긋나는 구간에서 예측은 늘 과소 추정된다."
+      - "창고 실사 결과가 장부에 닿기까지 평균 사흘. 그 사흘은 어디에도 남지 않는다."
     subhead: "그래서 순서를 바꾼다"
-    subbody: "모델 교체보다 입력 주기 정렬이 먼저다. 두 주기를 맞추는 데 드는 비용은 한 분기치 개발 공수다."
+    subbody: "모델 교체보다 입력 주기 정렬이 먼저다."
 
   # 08 cards pair (2) · blueprint
   - layout: cards
@@ -106,7 +106,6 @@ slides:
   # card_grid · 세로 카드
   - layout: card_grid
     eyebrow: "08 | 점검"
-    eyebrow_chip: true
     title: "동시에 보는 네 곳"
     items:
       - {index: "1", title: "발주", body: "주 단위로 승인이 모인다"}
