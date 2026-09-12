@@ -60,12 +60,12 @@ AI로 만든 PPT는 내용과 무관하게 알아봅니다. 원인은 대부분 
 <td width="50%"><img src="docs/section.png" alt="section"><br><code>section</code> · 장 구분, accent 전면 반전</td>
 </tr>
 <tr>
-<td><img src="docs/statement.png" alt="statement"><br><code>statement</code> · 주장 한 줄. 호흡을 끊는다</td>
+<td><img src="docs/cellgrid.png" alt="cellgrid"><br><code>cellgrid</code> · 자료구조를 칸으로 그려 가르친다</td>
 <td><img src="docs/data.png" alt="data"><br><code>data</code> · 히어로 1 + 보조 2의 비대칭 위계</td>
 </tr>
 <tr>
-<td><img src="docs/cards-ledger.png" alt="cards"><br><code>cards</code> · 항목 수가 구성을 정한다 (ledger = 3개)</td>
-<td><img src="docs/closing.png" alt="closing"><br><code>closing</code> · 반전 필드 + 정보 원장</td>
+<td><img src="docs/code-explain.png" alt="code_explain"><br><code>code_explain</code> · 코드 왼쪽, 설명 오른쪽, 배열 칸 아래</td>
+<td><img src="docs/gallery.png" alt="gallery"><br><code>gallery</code> · 같은 숫자를 여러 방식으로</td>
 </tr>
 <tr>
 <td colspan="2"><img src="docs/table.png" alt="table"><br><code>table</code> · 네이티브 표를 쓰지 않는다. 테마 표스타일의 줄무늬 채움과 전체 테두리가 가장 알아보기 쉬운 템플릿 지문이라 헤어라인으로 직접 그린다</td>

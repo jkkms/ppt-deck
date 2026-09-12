@@ -92,6 +92,13 @@ class L:
         if sl.get("runner"):
             d.text(s, "micro", col_x(9), self.eyebrow_y, span_w(4), 15,
                    sl["runner"], color="muted", align="right", tag="runner")
+        if sl.get("kind"):
+            # 실습·활동 표시. 눈썹이 '어느 장인지'라면 이건 '무엇을 하는 장인지'다
+            SH = d.spec["shapes"]
+            w = block_w(sl["kind"], d.spec["styles"]["small"],
+                        d.spec["fonts"]["body"]) + 34
+            d.chip(s, content_r() - w, self.title_y + 4, w, SH["eyebrow_chip_h"],
+                   sl["kind"], color="accent", text_color="ground", style="small")
         if sl.get("title"):
             st = d.spec["styles"][title_style]
             t = self.balance(sl["title"], span_w(span), title_style)
@@ -685,6 +692,145 @@ def code(d, s, m, sl):
                color="muted", tag="caption")
 
 
+def code_explain(d, s, m, sl):
+    """코드 왼쪽, 설명 오른쪽. 2차시 덱의 주력 구성(16~27쪽)이다.
+
+    코드는 어두운 판에 고정폭으로, 설명은 tint 판에 사람 말로. 둘을 같은 높이로 맞춘다.
+    아래에 배열 칸(cells)을 두면 '무엇이 어떻게 바뀌는지'가 눈에 보인다.
+    """
+    g = L(d)
+    SH = d.spec["shapes"]
+    g.head(s, sl, span=12)
+    cw, ew = span_w(7), span_w(5)
+    cx, ex = col_x(1), col_x(8)
+
+    raw = [str(l) for l in (sl.get("code") or [])]
+    col = sl.get("comment_col", SH["code_comment_col"])
+    lines = []
+    for l in raw:
+        if "#" in l and not l.lstrip().startswith("#"):
+            h_, n_ = l.split("#", 1)
+            h_ = h_.rstrip()
+            lines.append(h_ + " " * max(1, col - dw(h_)) + "#" + n_)
+        else:
+            lines.append(l)
+    cst = d.spec["styles"]["code"]
+    widest = max((block_w(l, cst, d.spec["fonts"]["mono"]) for l in lines), default=0)
+    if widest > cw - SH["code_pad_x"] * 2:
+        warn(f"slide {d._slide_i}: 코드가 판을 넘는다 — 주석 칸을 줄이거나 줄을 나눠라")
+
+    eh_t = g.bh(sl.get("point", ""), ew - 60, "h2") if sl.get("point") else 0
+    eh_b = g.bh(sl.get("explain", ""), ew - 60, "lead") if sl.get("explain") else 0
+    ph = max(len(lines) * cst["size"] * cst["leading"] + SH["code_pad_y"] * 2,
+             eh_t + (12 + eh_b if eh_b else 0) + 44)
+    y = g.block
+    d.panel(s, cx, y, cw, ph, color="figure", radius=SH["panel_radius"])
+    d.text(s, "code", cx + SH["code_pad_x"], y + (ph - len(lines) * cst["size"]
+           * cst["leading"]) / 2, cw - SH["code_pad_x"] * 2,
+           len(lines) * cst["size"] * cst["leading"], lines, color="ground",
+           accent_paras=tuple(i for i, l in enumerate(lines) if l.lstrip().startswith("#")),
+           tag="code")
+    d.panel(s, ex, y, ew, ph, radius=SH["panel_radius"])
+    ty = y + (ph - (eh_t + (12 + eh_b if eh_b else 0))) / 2
+    if eh_t:
+        d.text(s, "h2", ex + 30, ty, ew - 60, eh_t, sl["point"], tag="explain-point")
+    if eh_b:
+        d.text(s, "lead", ex + 30, ty + eh_t + 12, ew - 60, eh_b, sl["explain"],
+               color="ink2", tag="explain-body")
+
+    cells = sl.get("cells") or []
+    if cells:
+        cy = y + ph + 34
+        if sl.get("cells_label"):
+            d.text(s, "small", cx, cy - 26, span_w(6), 20, sl["cells_label"],
+                   color="muted", tag="cells-label")
+        cs, gp = SH["chipcell"], SH["chipcell_gap"]
+        for i, v in enumerate(cells[:14]):
+            d.chip(s, cx + i * (cs + gp), cy, cs, cs, str(v),
+                   color="accent_tint", text_color="figure", style="lead")
+
+
+def cellgrid(d, s, m, sl):
+    """자료구조를 칸으로 그려 가르친다. 2차시 23쪽 — 시리즈와 데이터프레임.
+
+    표를 '보여 주는' table 과 다르다. 이건 구조를 '설명하는' 그림이라
+    머리 칸만 진한 톤으로 띄우고 나머지는 tint 로 둔다.
+    """
+    g = L(d)
+    SH = d.spec["shapes"]
+    g.head(s, sl, span=12)
+    blocks = (sl.get("blocks") or [])[:2]
+    if not blocks:
+        return
+    n = len(blocks)
+    pw = (span_w(12) - 20) / n if n > 1 else span_w(12)
+    ch, gp = SH["cell_h"], SH["cell_gap"]
+    maxrows = max(len(b.get("rows") or []) for b in blocks)
+    ph = 44 + 26 + 24 + (maxrows + 1) * (ch + gp) + 24
+    y = g.block
+    for k, b in enumerate(blocks):
+        x = col_x(1) + k * (pw + 20)
+        d.panel(s, x, y, pw, ph, radius=SH["panel_radius"])
+        d.text(s, "h2", x + 30, y + 16, pw - 60, 30, b.get("title", ""), tag="cg-title")
+        if b.get("desc"):
+            d.text(s, "small", x + 30, y + 54, pw - 60, 20, b["desc"],
+                   color="muted", tag="cg-desc")
+        heads = b.get("headers") or []
+        rows = b.get("rows") or []
+        ncol = max(len(heads), max((len(r) for r in rows), default=0))
+        if not ncol:
+            continue
+        inner = pw - 64
+        widths = b.get("widths") or [1] * ncol
+        tot = sum(widths)
+        ws = [inner * w / tot - gp * (ncol - 1) / ncol for w in widths]
+        gy = y + 100
+        for j, hcell in enumerate(heads[:ncol]):
+            gx = x + 32 + sum(ws[:j]) + gp * j
+            d.chip(s, gx, gy, ws[j], ch, str(hcell), color="accent_mid",
+                   text_color="figure", style="small", radius=3)
+        for i, row in enumerate(rows):
+            gy2 = gy + (i + 1) * (ch + gp)
+            for j, cell in enumerate(row[:ncol]):
+                gx = x + 32 + sum(ws[:j]) + gp * j
+                d.chip(s, gx, gy2, ws[j], ch, str(cell), color="accent_tint",
+                       text_color="figure", style="small", radius=3)
+
+
+def gallery(d, s, m, sl):
+    """같은 것을 여러 방식으로 보여 주는 장. 2차시 30쪽 — 네 가지 그래프.
+
+    한 칸 = 그림 하나 + 이름 + 코드 + 한 줄 설명. 개념 하나에 시각 자료 하나라는
+    원칙을 n 칸으로 반복한 것이다.
+    """
+    g = L(d)
+    SH = d.spec["shapes"]
+    g.head(s, sl, span=12)
+    items = (sl.get("items") or [])[:4]
+    n = len(items)
+    if not 2 <= n <= 4:
+        raise SystemExit(f"gallery 는 항목 2~4개만 지원한다 (받은 값: {n}).")
+    gap = SH["gallery_gap"]
+    pw = (span_w(12) - gap * (n - 1)) / n
+    imh = SH["gallery_img_h"]
+    ph = 36 + imh + 30 + 26 + 22 + 22 + 20
+    y = g.block
+    for i, it in enumerate(items):
+        x = col_x(1) + i * (pw + gap)
+        d.panel(s, x, y, pw, ph, radius=SH["panel_radius"])
+        if it.get("image"):
+            d.picture(s, it["image"], x + 14, y + 36, pw - 28, imh,
+                      it.get("fit", "contain"), tag="gallery-img")
+        ty = y + 36 + imh + 30
+        d.text(s, "h2", x + 30, ty, pw - 60, 26, it.get("title", ""), tag="gallery-title")
+        if it.get("code"):
+            d.text(s, "small", x + 30, ty + 34, pw - 60, 20, it["code"],
+                   font_key="mono", color="accent", tag="gallery-code")
+        if it.get("body"):
+            d.text(s, "small", x + 30, ty + 64, pw - 60, 20, it["body"],
+                   color="muted", tag="gallery-body")
+
+
 def table(d, s, m, sl):
     T = d.spec["table"]
     g = L(d)
@@ -766,7 +912,8 @@ LAYOUTS = {"cover": cover, "closing": closing, "section": section, "chain": chai
            "statement": statement, "two_col": two_col, "cards": cards,
            "panel_list": panel_list, "card_grid": card_grid,
            "timeline": timeline, "stair": stair, "compare": compare, "nest": nest,
-           "code": code,
+           "code": code, "code_explain": code_explain,
+           "cellgrid": cellgrid, "gallery": gallery,
            "data": data, "quote": quote, "table": table,
            "image_split": image_split, "image_full": image_full}
 INVERTED = {"section", "closing"}

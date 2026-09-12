@@ -384,6 +384,7 @@ class Deck:
         self.manifest: list[dict] = []
         self.shapes: list[dict] = []
         self.images: list[dict] = []
+        self._seq = 0
         self._tmpdir = os.path.join(os.environ.get("TMPDIR", "/tmp"),
                                     f"ppt-deck-{os.getpid()}")
         self.grounds: dict[int, str] = {}
@@ -420,8 +421,9 @@ class Deck:
         sh.line.fill.background()
         sh.shadow.inherit = False
         sh.text_frame.text = ""
+        self._seq += 1
         self.shapes.append(dict(slide=self._slide_i, x=x, y=y, w=w, h=h,
-                                color=self.c(color), kind=kind))
+                                color=self.c(color), kind=kind, seq=self._seq))
         return sh
 
     def panel(self, s, x, y, w, h, color="accent_tint", radius=5.0):
@@ -435,8 +437,9 @@ class Deck:
         sh.fill.solid(); sh.fill.fore_color.rgb = RGBColor.from_string(self.c(color))
         sh.line.fill.background(); sh.shadow.inherit = False
         sh.text_frame.text = ""
+        self._seq += 1
         self.shapes.append(dict(slide=self._slide_i, x=x, y=y, w=w, h=h,
-                                color=self.c(color), kind="panel", radius=radius))
+                                color=self.c(color), seq=self._seq, kind="panel", radius=radius))
         return sh
 
     def chip(self, s, x, y, w, h, text="", color="accent", text_color="ground",
@@ -450,8 +453,9 @@ class Deck:
         sh.fill.solid(); sh.fill.fore_color.rgb = RGBColor.from_string(self.c(color))
         sh.line.fill.background(); sh.shadow.inherit = False
         sh.text_frame.text = ""
+        self._seq += 1
         self.shapes.append(dict(slide=self._slide_i, x=x, y=y, w=w, h=h,
-                                color=self.c(color), kind="chip", radius=radius))
+                                color=self.c(color), seq=self._seq, kind="chip", radius=radius))
         if text:
             self.text(s, style, x, y, w, h, str(text), color=text_color,
                       align="center", anchor="middle", exact_center=True,
@@ -471,8 +475,9 @@ class Deck:
         sh.fill.solid(); sh.fill.fore_color.rgb = RGBColor.from_string(self.c(color))
         sh.line.fill.background(); sh.shadow.inherit = False
         sh.text_frame.text = ""
+        self._seq += 1
         self.shapes.append(dict(slide=self._slide_i, x=x, y=y, w=d, h=d,
-                                color=self.c(color), kind=kind))
+                                color=self.c(color), kind=kind, seq=self._seq))
         if glyph:
             # 박스를 원과 정확히 같은 사각형으로 두고 세로 중앙 앵커에 맡긴다.
             # Pretendard 는 라인박스 중심(0.3555em)과 글리프 잉크 중심(0.3535em)이
@@ -488,8 +493,9 @@ class Deck:
         sh.fill.solid(); sh.fill.fore_color.rgb = RGBColor.from_string(self.c(color))
         sh.line.fill.background(); sh.shadow.inherit = False
         sh.text_frame.text = ""
+        self._seq += 1
         self.shapes.append(dict(slide=self._slide_i, x=x, y=y, w=w, h=h,
-                                color=self.c(color), kind="ring"))
+                                color=self.c(color), seq=self._seq, kind="ring"))
         return sh
 
     def connector(self, s, x, y, h, w=1.0, color="accent_soft"):
@@ -559,8 +565,9 @@ class Deck:
         tmp = os.path.join(self._tmpdir, f"img{len(self.images):03d}.png")
         im.save(tmp)
         s.shapes.add_picture(tmp, Pt(dx), Pt(dy), Pt(dw), Pt(dh))
+        self._seq += 1
         self.images.append(dict(slide=self._slide_i, x=dx, y=dy, w=dw, h=dh,
-                                src=tmp, tag=tag))
+                                src=tmp, tag=tag, seq=self._seq))
         return dx, dy, dw, dh
 
     # ---- 텍스트 --------------------------------------------------------

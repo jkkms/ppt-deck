@@ -173,6 +173,49 @@ slides:
       - "mae = (df.pred - df.real).abs().mean()   # 평균 절대 오차"
     caption: "출처 · 운영 노트 3분기"
 
+  # code_explain · 코드 왼쪽 · 설명 오른쪽 + 배열 칸
+  - layout: code_explain
+    eyebrow: "14 | 계산"
+    title: "칸마다 한꺼번에 계산된다"
+    kind: "함께 해 봅시다"
+    code:
+      - "arr * 2"
+      - ""
+      - "array([2, 4, 6, 8, 10, 12])"
+    point: "모든 칸에 한꺼번에"
+    explain: "반복문을 쓰지 않아도 칸마다 알아서 계산됩니다."
+    cells_label: "arr * 2"
+    cells: ["2", "4", "6", "8", "10", "12"]
+    notes: |
+      브로드캐스팅이라고 부른다. 배열 전체에 같은 연산을 한 번에 건다는 뜻이다.
+      반복문으로 같은 일을 하면 줄 수도 늘고 느려진다. 여기서 속도 차이를 한 번 재 보여 주면 좋다.
+
+  # cellgrid · 자료구조를 칸으로 그려 가르친다
+  - layout: cellgrid
+    eyebrow: "15 | 구조"
+    title: "한 줄이면 시리즈, 표면 데이터프레임"
+    blocks:
+      - title: "시리즈  Series"
+        desc: "값이 한 줄로 늘어선 것. 표의 한 열입니다."
+        headers: ["인덱스", "값"]
+        widths: [1, 1.7]
+        rows: [["0", "서울"], ["1", "부산"], ["2", "대구"]]
+      - title: "데이터프레임  DataFrame"
+        desc: "가로세로가 있는 표. 시리즈 여러 개가 모인 것."
+        headers: ["", "도시", "발주", "판매"]
+        widths: [0.7, 1.2, 1, 1]
+        rows: [["0", "서울", "24", "31"], ["1", "부산", "18", "16"], ["2", "대구", "12", "14"]]
+
+  # gallery · 같은 것을 여러 방식으로
+  - layout: gallery
+    eyebrow: "16 | 시각화"
+    title: "같은 숫자, 네 가지 그림"
+    items:
+      - {image: "sample/chart-line.png", title: "꺾은선", code: "plt.plot", body: "변해 가는 흐름"}
+      - {image: "sample/chart-bar.png", title: "막대", code: "plt.bar", body: "항목끼리 비교"}
+      - {image: "sample/chart-scatter.png", title: "산점도", code: "plt.scatter", body: "둘 사이의 관계"}
+      - {image: "sample/chart-pie.png", title: "원", code: "plt.pie", body: "전체에서의 몫"}
+
   # 14 quote · letterpress
   - layout: quote
     text: "규칙을 문서로 못 박기 전까지, 우리가 공정하다고 부른 것은 그날 조교의 컨디션이었다."

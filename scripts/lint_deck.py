@@ -84,7 +84,8 @@ def main(path):
                 # 계단이 관계를 나타내는 장치이기 때문이다 — 사용자 덱도 82.1/129.6/177.1 이다.
                 if b["tag"].startswith(("chain-", "badge-", "panel-", "chip-",
                                         "card-", "stair-", "compare-", "nest-",
-                                        "node-", "ring-", "code")) or \
+                                        "node-", "ring-", "code", "gallery-",
+                                        "cg-", "explain-", "cells-")) or \
                    b["tag"] in ("full-title", "caption", "ledger-index") or \
                    (b["tag"] == "eyebrow" and b["y"] > 300):
                     continue

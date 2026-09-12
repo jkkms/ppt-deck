@@ -135,6 +135,12 @@ def _fontfile(name):
     return _m._find(stem)
 
 
+def _fontfile(name):
+    import metrics as _m
+    stem = _m.WANT.get(name, "Pretendard-Regular")
+    return _m._find(stem)
+
+
 def raster(man, idx, scale=1.0):
     """SVG와 같은 좌표계를 PIL로 직접 그린다. 실제 Pretendard TTF를 써서
     글리프·줄바꿈·자간이 PowerPoint와 같은 메트릭으로 나온다."""
@@ -171,26 +177,28 @@ def raster(man, idx, scale=1.0):
             dr.text((cx, y * scale), ch, font=f, fill="#" + color, anchor="ls")
             cx += dr.textlength(ch, font=f) + trk * scale
 
-    for im_ in man.get("images", []):
-        if im_["slide"] != idx or not os.path.exists(im_["src"]):
+    # 도형과 그림을 만든 순서대로 그린다 — 순서를 무시하면 패널이 그림을 덮는다
+    layer = [("img", z) for z in man.get("images", []) if z["slide"] == idx] + \
+            [("sh", z) for z in man.get("shapes", []) if z["slide"] == idx]
+    layer.sort(key=lambda t: t[1].get("seq", 0))
+    for kindtag, z in layer:
+        if kindtag == "img":
+            if not os.path.exists(z["src"]):
+                continue
+            ph = Image.open(z["src"]).convert("RGB").resize(
+                (max(1, round(z["w"] * scale)), max(1, round(z["h"] * scale))), Image.LANCZOS)
+            img.paste(ph, (round(z["x"] * scale), round(z["y"] * scale)))
             continue
-        ph = Image.open(im_["src"]).convert("RGB").resize(
-            (max(1, round(im_["w"] * scale)), max(1, round(im_["h"] * scale))), Image.LANCZOS)
-        img.paste(ph, (round(im_["x"] * scale), round(im_["y"] * scale)))
-
-    for sh in man.get("shapes", []):
-        if sh["slide"] != idx:
-            continue
-        box = [sh["x"] * scale, sh["y"] * scale,
-               (sh["x"] + sh["w"]) * scale, (sh["y"] + sh["h"]) * scale]
-        kind = sh.get("kind")
-        if kind in ("badge", "node", "ring"):
-            dr.ellipse(box, fill="#" + sh["color"])
-        elif kind == "panel":
-            dr.rounded_rectangle(box, radius=sh.get("radius", 5) * scale,
-                                 fill="#" + sh["color"])
+        box = [z["x"] * scale, z["y"] * scale,
+               (z["x"] + z["w"]) * scale, (z["y"] + z["h"]) * scale]
+        k = z.get("kind")
+        if k in ("badge", "node", "ring"):
+            dr.ellipse(box, fill="#" + z["color"])
+        elif k in ("panel", "chip"):
+            dr.rounded_rectangle(box, radius=z.get("radius", 5) * scale,
+                                 fill="#" + z["color"])
         else:
-            dr.rectangle(box, fill="#" + sh["color"])
+            dr.rectangle(box, fill="#" + z["color"])
 
     for b in man["boxes"]:
         if b["slide"] != idx:

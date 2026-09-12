@@ -140,6 +140,13 @@ shapes:
   code_pad_x: 26
   code_pad_y: 22
   code_comment_col: 36
+  cell_h: 28
+  cell_gap: 4
+  chipcell: 43
+  chipcell_gap: 4.3
+  gallery_gap: 20
+  gallery_img_h: 121
+  kind_chip_w: 125
   node_d: 23
   node_year_dy: -50
   node_title_dy: 28
