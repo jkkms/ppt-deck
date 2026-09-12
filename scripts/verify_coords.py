@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""좌표 대조 — 명세서 §3(좌표 표)의 실값과 빌드 결과를 맞춰본다. 허용 오차 0pt.
+"""좌표 대조 — editorial 프로파일 전용. 허용 오차 0pt.
+
+주의 — 이 기대값은 'ppt-deck 재설계' 명세서 §3 의 좌표 표(마진 72 / display 84)에서 왔다.
+기본 프로파일은 house(마진 58 / 제목 31)로 바뀌었으므로 이 검증기는
+  build.py --spec references/deck-spec.editorial.yaml
+로 만든 덱에만 쓴다.
 
 사용:  verify_coords.py out/deck.manifest.json
 """

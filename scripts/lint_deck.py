@@ -8,7 +8,7 @@ import argparse, json, os, re, sys, zipfile
 from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from deckkit import load_spec, col_x, contrast, derive, invert_pal, CONTENT_R
+from deckkit import load_spec, col_x, span_w, contrast, derive, invert_pal, content_r
 
 FAIL = []
 
@@ -65,9 +65,14 @@ def main(path):
             except AssertionError as e:
                 fail("CONTRAST", f"{label}: {e}")
                 continue
-            rg, rf = contrast(col["muted"], col["ground"]), contrast(col["muted"], col["figure"])
-            if rg < c["muted_min_ratio_ground"] or rf < c["muted_min_ratio_figure"]:
-                fail("CONTRAST", f"{label}: ground {rg:.2f} / figure {rf:.2f}")
+            rg = contrast(col["muted"], col["ground"])
+            lim = c.get("min_ratio_caption", c.get("muted_min_ratio_ground", 4.5))
+            if rg < lim:
+                fail("CONTRAST", f"{label}: muted vs ground {rg:.2f} < {lim}")
+            if "ink2" in col and col["ink2"] != col["figure"]:
+                ri = contrast(col["ink2"], col["ground"])
+                if ri < c.get("min_ratio_body", 4.5):
+                    fail("CONTRAST", f"{label}: ink2 vs ground {ri:.2f}")
 
     # ---- GRID · EYEBROW_Y · ANCHOR · PLATE (매니페스트) ---------------------
     if man:
@@ -77,20 +82,30 @@ def main(path):
         for n, boxes in sorted(by_slide.items()):
             for b in boxes:
                 # image_full 의 글자는 판 내부 좌표라 그리드 밖을 허용한다
-                if b["tag"] in ("full-title",) or (b["tag"] == "eyebrow" and b["y"] == 340):
+                if b["tag"] in ("full-title", "caption") or (b["tag"] == "eyebrow" and b["y"] > 300):
                     continue
-                if b["x"] not in COLS and b["x"] not in (88, 592, 732, 872):
+                if b["x"] not in COLS and round(b["x"]) not in {round(col_x(n)) + spec["table"]["pad_x"] for n in range(1, 13)} | {round(col_x(n) + span_w(sp) - spec["table"]["pad_x"]) for n in range(1, 13) for sp in (2, 3, 4, 6)} | {58, 72}:
                     fail("GRID", f"s{n}: '{b['tag']}' x={b['x']} 가 컬럼 좌표가 아니다")
-                if b["x"] + b["w"] > CONTENT_R + 1e-6:
-                    fail("GRID", f"s{n}: '{b['tag']}' 오른변 {b['x']+b['w']:.0f} > 888")
+                if b["x"] + b["w"] > content_r() + 1e-6:
+                    fail("GRID", f"s{n}: '{b['tag']}' 오른변 {b['x']+b['w']:.0f} > {content_r():.0f}")
                 # style_usage 상 eyebrow 스타일은 카드 색인·인용 출처에도 쓰인다.
                 # 검사 대상은 '눈썹 라벨 역할'(tag == eyebrow)뿐이다.
                 # image_full 만 예외 — 눈썹이 판 내부(y 340)에 놓인다 (§8.15).
-                if b["tag"] == "eyebrow" and b["y"] not in (56, 340):
+                ok_y = {(spec.get("rhythm_y") or {}).get("eyebrow_y", 56), 340, 354}
+                if b["tag"] == "eyebrow" and b["y"] not in ok_y:
                     fail("EYEBROW_Y", f"s{n}: 눈썹 라벨 y={b['y']} (56 고정)")
+            R = spec.get("rhythm_y")
             tops = [b["y"] for b in boxes]
             bottoms = [b["y"] + b["h"] for b in boxes]
-            if 56 not in tops and max(bottoms) < 483.5:
+            if R:
+                # house 프로파일: 눈썹·제목이 고정 행에 있고, 어떤 요소도
+                # 상단 마진 위나 본문 하한 아래로 나가지 않으면 된다.
+                if min(tops) < R["eyebrow_y"] - 0.5:
+                    fail("ANCHOR", f"s{n}: 상단 마진 {R['eyebrow_y']} 위로 나간 요소가 있다")
+                if max(bottoms) > R["content_bottom"] + 0.5:
+                    fail("ANCHOR", f"s{n}: 본문 하한 {R['content_bottom']} 아래로 "
+                                   f"{max(bottoms):.0f} 까지 내려갔다")
+            elif 56 not in tops and max(bottoms) < 483.5:
                 fail("ANCHOR", f"s{n}: 상단 56 도 하단 484 도 잡히지 않았다 "
                                f"(최하단 {max(bottoms):.0f})")
         for sh in man.get("shapes", []):

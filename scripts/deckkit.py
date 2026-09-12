@@ -31,25 +31,40 @@ EMOJI = re.compile(
 # ---------------------------------------------------------------- spec
 def load_spec(path: str | None = None) -> dict:
     with open(path or SPEC_PATH, encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        spec = yaml.safe_load(f)
+    _set_grid(spec)
+    return spec
 
 
-# ---------------------------------------------------------------- §2 좌표 체계
-GRID_X0, GRID_STEP, COL_W, GUTTER = 72, 70, 46, 24
+# ---------------------------------------------------------------- 좌표 체계
+# 그리드 값은 스펙 파일에서 온다 — 프로파일(house / editorial)마다 다르다.
+GRID = {"x0": 58, "step": 72, "col_w": 52, "gutter": 20, "right": 902}
 CANVAS_W, CANVAS_H = 960, 540
-CONTENT_R = 888                      # col_x(n) + span_w(s) 가 이걸 넘으면 그리드 밖
+
+
+def _set_grid(spec):
+    g = spec["grid"]
+    GRID.update(x0=g["margin_x"], step=g["col_w"] + g["gutter"],
+                col_w=g["col_w"], gutter=g["gutter"],
+                right=g["margin_x"] + 11 * (g["col_w"] + g["gutter"]) + g["col_w"])
+    globals()["CANVAS_W"] = spec["canvas"]["width_pt"]
+    globals()["CANVAS_H"] = spec["canvas"]["height_pt"]
 
 
 def col_x(n: int) -> float:
-    """1-based 컬럼 인덱스 -> x(pt). col1=72, col6=422, col12=842"""
+    """1-based 컬럼 인덱스 -> x(pt)."""
     assert 1 <= n <= 12, f"컬럼 인덱스 {n} 범위 밖"
-    return GRID_X0 + (n - 1) * GRID_STEP
+    return GRID["x0"] + (n - 1) * GRID["step"]
 
 
 def span_w(s: int) -> float:
-    """스팬 -> 폭(pt). span1=46, span4=256, span7=466, span12=816"""
+    """스팬 -> 폭(pt)."""
     assert 1 <= s <= 12, f"스팬 {s} 범위 밖"
-    return GRID_STEP * s - GUTTER
+    return GRID["step"] * s - GRID["gutter"]
+
+
+def content_r() -> float:
+    return GRID["right"]
 
 
 # ---------------------------------------------------------------- §5 색 계산
@@ -96,19 +111,31 @@ def invert_pal(pal: dict) -> dict:
 
 
 def derive(pal: dict, cfg: dict) -> dict:
-    """팔레트 3색 -> 사용 색 전체. 4번째 hex는 생기지 않는다(전부 파생값)."""
+    """팔레트 3색 -> 사용 색 전체. 새 hex 는 생기지 않는다(전부 figure->ground 파생).
+
+    2단(figure·muted)으로는 작은 활자에서 위계가 안 선다. 사용자 덱의 실측 램프가
+    4단(161C18 / 3D4841 / 6B776F / 97A29B)이라 그 구조를 따른다.
+    """
     c = cfg["colors"]
-    t_muted = c["muted_mix_dark"] if is_dark_ground(pal) else c["muted_mix_light"]
-    muted = mix(pal["figure"], pal["ground"], t_muted)
-    hairline = mix(pal["figure"], pal["ground"], c["hairline_mix"])
-
-    r_ground = contrast(muted, pal["ground"])
-    r_figure = contrast(muted, pal["figure"])
-    assert r_ground >= c["muted_min_ratio_ground"], f"muted vs ground {r_ground:.2f}"
-    assert r_figure >= c["muted_min_ratio_figure"], f"muted vs figure {r_figure:.2f}"
-
-    return {"ground": pal["ground"], "figure": pal["figure"], "accent": pal["accent"],
-            "muted": muted, "hairline": hairline}
+    f, g = pal["figure"], pal["ground"]
+    if "tone_ink2" in c:                       # house 프로파일
+        out = {"ground": g, "figure": f, "accent": pal["accent"],
+               "ink2":  mix(f, g, c["tone_ink2"]),
+               "muted": mix(f, g, c["tone_muted"]),
+               "faint": mix(f, g, c["tone_faint"]),
+               "hairline": mix(f, g, c["hairline_mix"])}
+        assert contrast(out["ink2"], g) >= c["min_ratio_body"], \
+            f"ink2 vs ground {contrast(out['ink2'], g):.2f}"
+        assert contrast(out["muted"], g) >= c["min_ratio_caption"], \
+            f"muted vs ground {contrast(out['muted'], g):.2f}"
+        return out
+    # editorial 프로파일 (v2)
+    t = c["muted_mix_dark"] if is_dark_ground(pal) else c["muted_mix_light"]
+    muted, hairline = mix(f, g, t), mix(f, g, c["hairline_mix"])
+    assert contrast(muted, g) >= c["muted_min_ratio_ground"]
+    assert contrast(muted, f) >= c["muted_min_ratio_figure"]
+    return {"ground": g, "figure": f, "accent": pal["accent"],
+            "ink2": f, "muted": muted, "faint": muted, "hairline": hairline}
 
 
 # ---------------------------------------------------------------- §6 줄수 계산
@@ -156,31 +183,33 @@ def block_h(text: str, w: float, style: dict, font: str | None = None) -> float:
     return style["size"] * style["leading"] * line_count(text, w, style, font)
 
 
-# ---------------------------------------------------------------- §7 정렬 엔진
-ANCHOR_TOP, ANCHOR_BOTTOM, CONTENT_H, FILL_THRESHOLD = 56.0, 484.0, 428.0, 0.58
+# ---------------------------------------------------------------- 정렬 엔진
+def resolve_y(block_height: float, spec: dict) -> float:
+    """본문 블록 상단 y. 중간값은 없다 — 상단 아니면 하단.
 
-
-def resolve_y(block_height: float) -> float:
-    """블록 상단 y를 반환. 중간값은 없다.
-
-    block_height 에 eyebrow 는 포함하지 않는다 — eyebrow 는 항상 y 56 고정이고,
-    빈 공간이 화면 아래가 아니라 눈썹과 본문 사이로 옮겨가는 것이 이 규칙의 핵심이다.
+    눈썹·제목은 이 판정과 무관하게 rhythm_y 의 고정 좌표에 놓인다. 빈 공간이
+    화면 아래가 아니라 제목과 본문 사이로 옮겨가면서 프레임으로 읽힌다.
     """
-    if block_height / CONTENT_H >= FILL_THRESHOLD:      # 경계 248.24pt
-        return ANCHOR_TOP
-    return ANCHOR_BOTTOM - block_height
+    r = spec.get("rhythm_y")
+    if r:
+        top, bottom = r["content_y"], r["content_bottom"]
+    else:
+        top, bottom = 56.0, 484.0
+    avail = bottom - top
+    if block_height / avail >= spec["anchors"]["fill_threshold"]:
+        return top
+    return bottom - block_height
 
 
 # ---------------------------------------------------------------- §12 사각형 가드
-def assert_plate_ok(w: float, h: float, has_text: bool, kind: str):
+def assert_plate_ok(w: float, h: float, has_text: bool, kind: str, spec=None):
     """렌더러가 사각형을 그릴 수 있는 경우는 정확히 이 셋뿐이다."""
+    lim = (spec or {}).get("plates", {}).get("plate_min_side", 32)
     if kind == "plate":
-        assert min(w, h) >= 32, f"plate 짧은 변 {min(w, h)} < 32"
+        assert min(w, h) >= lim, f"plate 짧은 변 {min(w, h)} < {lim}"
         assert has_text, "활자를 담지 않는 채움 사각형은 생성 금지"
-    elif kind == "hero_rule":
-        assert h == 2, f"hero_rule 두께 {h} != 2"
-    elif kind == "table_rule":
-        assert h == 0.75, f"table_rule 두께 {h} != 0.75"
+    elif kind in ("hero_rule", "table_rule"):
+        pass                      # 두께는 스펙의 rules 그룹이 강제한다
     else:
         raise ValueError(f"허용되지 않은 사각형 종류: {kind}")
 
@@ -373,7 +402,7 @@ class Deck:
 
     # ---- 도형 ----------------------------------------------------------
     def _rect(self, s, x, y, w, h, color, kind, has_text):
-        assert_plate_ok(w, h, has_text, kind)          # §12 — 이 셋 외의 사각형은 없다
+        assert_plate_ok(w, h, has_text, kind, self.spec)   # 이 셋 외의 사각형은 없다
         sh = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, Pt(x), Pt(y), Pt(w), Pt(h))
         sh.fill.solid()
         sh.fill.fore_color.rgb = RGBColor.from_string(self.c(color))

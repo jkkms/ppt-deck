@@ -1,125 +1,109 @@
-# ppt-deck 디자인 토큰 — 슬라이드를 만들기 전에 여기서 모든 결정을 끝낸다.
-# 이 파일에 없는 색·크기·간격은 builder가 쓰지 않는다. 그게 AI 티를 막는 1차 방어선이다.
+# ppt-deck 디자인 토큰 — house 프로파일
 #
-# v2 시각 재설계. 정본: 'ppt-deck 재설계' 명세서 §2(토큰 표)·§3(좌표 표) / HANDOFF §4.
+# v3. 이 값들은 만들어낸 것이 아니라 사용자가 직접 만든 덱 4종(137장)에서 실측한 것이다.
+#   Dive 인공지능의 이해 1차시 / 소집면담00·01 강의자료 / 전북과학고 시범수업
+# 측정 결과 — 본문 11.5·13pt 가 전체 run 의 39%, 슬라이드 제목 31pt(가장 흔함) 또는 38pt,
+#   표지 46pt, 최대 72pt(1회). 좌우 마진 58, 수직 리듬 45(눈썹) / 68(제목) / 117(본문).
+# v2(편집디자인 프로파일)는 deck-spec.editorial.yaml 에 남겨뒀다 — display 84·mega 200 은
+#   실측 최대치의 2~3배라 "글자가 너무 크다"는 지적의 원인이었다.
 
 canvas:
   width_pt: 960
   height_pt: 540
 
 grid:
-  margin_x: 72
-  margin_top: 56
-  margin_bottom: 56
+  margin_x: 58        # 실측 — 면접대비 3종 전부 좌 58 / 우 902
+  margin_top: 45
+  margin_bottom: 45
   columns: 12
-  col_w: 46
-  gutter: 24
+  col_w: 52
+  gutter: 20          # step 72. x = 58 + (n-1)*72, w = 72s - 20. span12 = 844 (58..902)
 
-palettes:            # hex 12개 전부 원본 그대로
+# --- 수직 리듬: 실측된 세 지점. 모든 본문 레이아웃이 공유한다 -------------------
+rhythm_y:
+  eyebrow_y: 45
+  title_y:   68
+  content_y: 117      # 본문 영역 117..495 (378pt)
+  content_bottom: 495
+
+palettes:
   letterpress: {ground: "F4F1EA", figure: "1B1B1F", accent: "C8452D"}
   blueprint:   {ground: "122033", figure: "EDE6D6", accent: "D98E32"}
   graphite:    {ground: "FAFAF8", figure: "22252A", accent: "6E7F32"}
   dive:        {ground: "0E1A2B", figure: "FFFFFF", accent: "1B7FD4"}
+  forest:      {ground: "FBFAF7", figure: "161C18", accent: "1F5D42"}   # 면접대비 덱 실측
 active_palette: letterpress
 
-# --- 색 파생 규칙 ------------------------------------------------------------
-# muted는 figure를 ground 쪽으로 섞어 만든다. 혼합비를 명/암에서 다르게 가져간다.
-# 밝은 ground: ground 대비 4.5:1 이 상한을 결정 → 0.34가 최대치
-# 어두운 ground: ground 대비는 자동 충족, figure와의 분리가 기준 → 0.30
-# 판정 규칙: muted는 ground 대비 >= 4.5:1  AND  figure 대비 >= 1.7:1 을 동시에 만족
+# --- 색: 3색 -> 4단 톤 램프. 새 hex 는 생기지 않는다(전부 figure->ground 파생) ----
+# 실측 근거 — 면접대비 덱은 161C18 / 3D4841 / 6B776F / 97A29B 의 4단 램프를 쓴다.
+# 작은 활자에서 위계를 만들려면 2단(figure·muted)으로는 부족하다.
 colors:
-  muted_mix_light: 0.34     # figure가 ground보다 어두운 팔레트 (letterpress, graphite)
-  muted_mix_dark:  0.30     # figure가 ground보다 밝은 팔레트 (blueprint, dive)
-  hairline_mix:    0.70     # 0.75pt 구조선 전용. 활자에는 절대 쓰지 않는다
-  muted_min_ratio_ground: 4.5
-  muted_min_ratio_figure: 1.7
+  tone_ink2:  0.22        # 본문 보조 · 표 셀
+  tone_muted: 0.48        # 캡션 · 러너
+  tone_faint: 0.68        # 구분선 · 아주 약한 배경 활자
+  hairline_mix: 0.78      # 0.5pt 구조선 전용. 활자에는 쓰지 않는다
+  min_ratio_body: 4.5     # body 이상 크기는 ground 대비 4.5:1
+  min_ratio_caption: 3.0  # 캡션(small·micro)은 3.0:1
 
-# --- 타입 스케일 -------------------------------------------------------------
-# tracking 단위 = 1/100 pt (PPTX rPr/@spc). 이 표에 없는 크기는 존재하지 않는다.
+# --- 타입 스케일: 전부 사용자 덱에서 실제로 쓰인 크기다 -----------------------
+# tracking 1/100pt. 큰 활자는 음수, 작은 활자는 약간 양수 (apple-design §15).
 styles:
-  mega:      {font: display, size: 200, leading: 0.82, tracking: -500}
-  stat1:     {font: display, size: 160, leading: 0.85, tracking: -400}
-  stat2:     {font: display, size: 132, leading: 0.88, tracking: -350}
-  stat3:     {font: display, size: 96,  leading: 0.92, tracking: -250}
-  stat_sub:  {font: display, size: 62,  leading: 0.95, tracking: -160}
-  stat_sub2: {font: display, size: 46,  leading: 1.00, tracking: -120}
-  display:   {font: display, size: 84,  leading: 0.98, tracking: -200}
-  quote:     {font: head,    size: 44,  leading: 1.28, tracking: -90}
-  h1:        {font: head,    size: 40,  leading: 1.08, tracking: -80}
-  h2:        {font: head,    size: 24,  leading: 1.30, tracking: -40}
-  eyebrow:   {font: head,    size: 20,  leading: 1.20, tracking: 120}   # 신규
-  body:      {font: body,    size: 18,  leading: 1.55, tracking: 0}
-  small:     {font: body,    size: 15,  leading: 1.45, tracking: 0}
-  label:     {font: label,   size: 12,  leading: 1.20, tracking: 70}
+  hero:    {font: display, size: 62,   leading: 1.02, tracking: -150}  # 숫자 한 장
+  cover:   {font: display, size: 46,   leading: 1.15, tracking: -90}   # 표지 제목
+  display: {font: head,    size: 38,   leading: 1.20, tracking: -60}   # 섹션 · 스테이트먼트
+  h1:      {font: head,    size: 31,   leading: 1.20, tracking: -40}   # 슬라이드 제목(주력)
+  h2:      {font: head,    size: 21,   leading: 1.30, tracking: -20}   # 소제목 · 카드 제목
+  lead:    {font: body,    size: 15.5, leading: 1.45, tracking: 0}     # 리드 문장
+  body:    {font: body,    size: 13,   leading: 1.54, tracking: 0}     # 본문(주력)
+  small:   {font: body,    size: 11.5, leading: 1.48, tracking: 0}     # 캡션 · 표 셀
+  micro:   {font: label,   size: 10.5, leading: 1.40, tracking: 60}    # 눈썹 · 러너 · 각주
 
-# 스타일 용도 고정 — 아무 데나 쓰지 않는다
 style_usage:
-  mega:      [section.number]
-  stat1:     [data.hero]
-  stat2:     [cover.year]
-  stat3:     []                       # 현 설계에서 미사용. 스케일에는 남긴다
-  stat_sub:  [data.hero_unit]
-  stat_sub2: [data.secondary_value, cards.ledger_index]
-  display:   [cover.title, section.title, statement.text, closing.title]
-  quote:     [quote.text]
-  h1:        [two_col.title, cards.head, table.head, image_split.title, image_full.title]
-  h2:        [two_col.subhead, cards.item_title, data.unit_small]
-  eyebrow:   ["*.eyebrow", cards.item_index, quote.source]
-  body:      ["*.body", table.cell]
-  small:     ["*.caption", "*.runner", table.header_label, table.footnote]
-  label:     [page_number, footnote_micro]    # 눈썹 라벨에서 퇴출
+  hero:    [data.hero]
+  cover:   [cover.title, closing.title]
+  display: [section.title, statement.text]
+  h1:      ["*.title"]
+  h2:      [two_col.subhead, cards.item_title, data.secondary_value]
+  lead:    [two_col.lead, statement.body]
+  body:    ["*.body", table.cell, cards.item_body]
+  small:   ["*.caption", table.header_label, data.secondary_label]
+  micro:   ["*.eyebrow", "*.runner", "*.footnote", page_number]
 
 fonts:
-  display: "Pretendard Black"
+  display: "Pretendard SemiBold"   # 실측 최대 72pt 에서도 Black 은 쓰지 않았다
   head:    "Pretendard SemiBold"
   body:    "Pretendard"
   label:   "Pretendard Medium"
 
-# --- 정렬 엔진 ---------------------------------------------------------------
 anchors:
-  anchor_top:     56      # 상단 정렬 시 블록 상단 y
-  anchor_bottom:  484     # 하단 정렬 시 블록 하단 y
-  content_h:      428     # 484 - 56
-  fill_threshold: 0.58    # 블록높이 / 428 >= 0.58 -> 상단, 미만 -> 하단 (경계 248.24pt)
-  eyebrow_y:      56      # 본문 정렬과 무관하게 항상 고정
-  gap_eyebrow:    30      # eyebrow 박스 하단 -> 다음 요소 상단
-  gap_block:      32      # 블록 간 최소 간격
+  fill_threshold: 0.58   # 본문 블록 / 378 >= 0.58 -> 상단(117), 미만 -> 하단(495)
+  gap_block: 24
 
-# --- 채움 판 / 선 -----------------------------------------------------------
 plates:
-  plate_min_side:  32     # 채운 사각형의 짧은 변 하한
-  plate_needs_text: true  # 내부에 활자를 담지 않는 채움 사각형은 생성 금지
-rules:                    # 허용된 선. 이 목록에 없는 선은 생성하지 않는다
-  hero_rule_w:  2         # data 히어로 숫자 밑줄. figure 단색
-  table_rule_w: 0.75      # table 행 구분선. hairline 색
+  plate_min_side: 26
+  plate_needs_text: true
+rules:
+  hero_rule_w: 1.5
+  table_rule_w: 0.5
 
-# --- cards ------------------------------------------------------------------
 cards:
   mode_by_count: {2: pair, 3: ledger, 4: quad, 5: dense, 6: dense}
-  head:          {eyebrow_y: 56, h1_y: 86, h1_h: 43}   # 4모드 공통
-  card_stagger:  84       # pair 모드의 수직 엇단
-  row_h:         94       # ledger
-  row_step:      109      # ledger
-  cell_h:        146      # quad · dense
-  cell_step:     161      # quad · dense
+  gutter_v: 28
 
-# --- table ------------------------------------------------------------------
 table:
-  header_h: 34
-  row_h:    40
-  pad_x:    16
-  header_y: 168
-  first_row_y: 208
-  col_pattern:            # 열 수 -> 컬럼 스팬 배열. 합 + 거터가 12컬럼에 맞는다
+  header_h: 28
+  row_h:    32
+  pad_x:    12
+  col_pattern:
     2: [6, 6]
     3: [6, 3, 3]
     4: [6, 2, 2, 2]
     5: [4, 2, 2, 2, 2]
 
-density: speaker
+density: reading        # 실측 — 슬라이드당 텍스트박스 중앙값 10개. 선생님 덱은 고밀도다
 density_limits:
-  speaker: {bullets: 3, bullet_chars: 34, table_rows: 5}
-  reading: {bullets: 6, bullet_chars: 80, table_rows: 10}
+  speaker: {bullets: 4, bullet_chars: 60, table_rows: 6}
+  reading: {bullets: 7, bullet_chars: 120, table_rows: 9}
 
 hard_rules:
   - no_shadow
@@ -128,10 +112,10 @@ hard_rules:
   - no_3d
   - no_theme_table_style
   - no_emoji
-  - no_decor_rule          # 신규: 허용 목록(hero_rule, table_rule) 외의 선 금지
-  - no_full_width_band     # 신규: 활자를 담지 않는 채움 사각형 금지
+  - no_decor_rule
+  - no_full_width_band
 
 rhythm:
   max_same_layout_run: 2
-  max_same_cards_mode_run: 1   # 신규: cards 연속 시 같은 모드 반복 금지
+  max_same_cards_mode_run: 1
   page_number_from: 2

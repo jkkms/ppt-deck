@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """ppt-deck 빌더 — outline.yaml -> .pptx
 
-좌표 정본: 'ppt-deck 재설계' 명세서 §3(좌표 표) / HANDOFF §8.
-x·w 는 전부 col_x()/span_w() 로만 계산한다. 명세서의 pt 실값은 검증용이다.
+좌표는 스펙의 그리드와 수직 리듬에서만 나온다. house 프로파일의 리듬은
+사용자 덱 4종(137장) 실측값이다 — 눈썹 45 / 제목 68 / 본문 117..495, 좌우 마진 58.
 
 사용:  build.py outline.yaml [-o out/deck.pptx] [--spec other.yaml] [--embed-fonts]
 """
@@ -11,8 +11,8 @@ import argparse, os, sys
 
 import yaml
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from deckkit import (Deck, load_spec, col_x, span_w, block_h, line_count,
-                     resolve_y, CONTENT_R)
+from deckkit import (Deck, load_spec, col_x, span_w, content_r,
+                     block_h, line_count, resolve_y)
 
 WARN: list[str] = []
 
@@ -20,275 +20,298 @@ WARN: list[str] = []
 def warn(msg): WARN.append(msg)
 
 
-def _txt(sl, *keys):
+def _t(sl, *keys):
     for k in keys:
         if sl.get(k):
             return str(sl[k])
     return ""
 
 
-def _eyebrow(d, s, sl, span=7):
-    """모든 레이아웃 공통. 정렬과 무관하게 항상 y 56 (§7)."""
+def _paras(sl, *keys):
+    for k in keys:
+        v = sl.get(k)
+        if isinstance(v, list) and v:
+            return [str(x) for x in v]
+        if isinstance(v, str) and v:
+            return [v]
+    return []
+
+
+class L:
+    """레이아웃이 공유하는 리듬. 스펙의 rhythm_y 를 그대로 읽는다."""
+    def __init__(self, d):
+        r = d.spec.get("rhythm_y") or {"eyebrow_y": 56, "title_y": 86,
+                                       "content_y": 117, "content_bottom": 484}
+        self.eyebrow_y, self.title_y = r["eyebrow_y"], r["title_y"]
+        self.top, self.bottom = r["content_y"], r["content_bottom"]
+        self.h = self.bottom - self.top
+        self.gap = d.spec["anchors"]["gap_block"]
+        self.d = d
+
+    def head(self, s, sl, title_style="h1", span=9):
+        """눈썹 + 제목. 두 좌표는 모든 장에서 고정이다 — 그래서 훑을 때 눈이 안 흔들린다."""
+        d = self.d
+        if sl.get("eyebrow"):
+            d.text(s, "micro", col_x(1), self.eyebrow_y, span_w(span), 15,
+                   sl["eyebrow"], color="accent", tag="eyebrow")
+        if sl.get("runner"):
+            d.text(s, "micro", col_x(9), self.eyebrow_y, span_w(4), 15,
+                   sl["runner"], color="muted", align="right", tag="runner")
+        if sl.get("title"):
+            st = d.spec["styles"][title_style]
+            h = block_h(sl["title"], span_w(span), st, d.spec["fonts"][st["font"]])
+            d.text(s, title_style, col_x(1), self.title_y, span_w(span), h,
+                   str(sl["title"]).split("\n"), tag="title")
+
+    def bh(self, text, w, style):
+        st = self.d.spec["styles"][style]
+        return block_h(text, w, st, self.d.spec["fonts"][st["font"]])
+
+
+# ================================================================= 레이아웃
+def cover(d, s, m, sl):
+    g = L(d)
     if sl.get("eyebrow"):
-        d.text(s, "eyebrow", col_x(1), 56, span_w(span), 24, sl["eyebrow"],
+        d.text(s, "micro", col_x(1), g.eyebrow_y, span_w(8), 15, sl["eyebrow"],
                color="accent", tag="eyebrow")
-
-
-def _runner(d, s, sl, y=60):
-    """우상단 러너. small muted 우정렬."""
-    if sl.get("runner"):
-        d.text(s, "small", col_x(9), y, span_w(4), 22, sl["runner"],
-               color="muted", align="right", tag="runner")
-
-
-# ================================================================= §8.1 cover
-def cover(d: Deck, s, m, sl):
-    _eyebrow(d, s, sl, span=9)
-    if sl.get("year"):
-        d.text(s, "stat2", col_x(9), 56, span_w(4), 116, str(sl["year"]),
-               color="accent", align="right", tag="cover-year")
-    d.text(s, "display", col_x(1), 252, span_w(9), 165,
-           _txt(sl, "title") or m.get("title", ""), tag="cover-title")
-    meta = sl.get("meta") or [x for x in (m.get("org"), m.get("date")) if x]
+    meta = _paras(sl, "meta")
+    mh = g.bh("\n".join(meta), span_w(6), "small") if meta else 0
+    title = _t(sl, "title") or m.get("title", "")
+    th = g.bh(title, span_w(9), "cover")
+    y_meta = g.bottom - mh
+    y_title = y_meta - g.gap - th
+    d.text(s, "cover", col_x(1), y_title, span_w(9), th, title.split("\n"), tag="title")
     if meta:
-        d.text(s, "small", col_x(1), 441, span_w(5), 44, meta,
-               color="muted", tag="cover-meta")
+        d.text(s, "small", col_x(1), y_meta, span_w(6), mh, meta,
+               color="muted", tag="meta")
 
 
-# ================================================================= §8.2 closing
-def closing(d: Deck, s, m, sl):
-    """반전 필드. cover와 네 축이 다르다 — 명도·제목 줄수·측정·보조 요소 (§3 #5)."""
-    _eyebrow(d, s, sl, span=5)
-    for i, row in enumerate((sl.get("ledger") or [])[:3]):
-        y = 196 + i * 70                      # 행 step 70
-        d.text(s, "small", col_x(8), y, span_w(5), 22, row.get("label", ""),
+def closing(d, s, m, sl):
+    """반전 필드. 표지와 다른 축 — 정보 원장이 우측에 서고 제목은 1줄이다."""
+    g = L(d)
+    if sl.get("eyebrow"):
+        d.text(s, "micro", col_x(1), g.eyebrow_y, span_w(5), 15, sl["eyebrow"],
+               color="accent", tag="eyebrow")
+    rows = (sl.get("ledger") or [])[:3]
+    for i, row in enumerate(rows):
+        y = g.top + 20 + i * 62
+        d.text(s, "micro", col_x(8), y, span_w(5), 15, row.get("label", ""),
                color="muted", tag="ledger-label")
-        d.text(s, "body", col_x(8), y + 24, span_w(5), 28, row.get("value", ""),
-               font_key="head", tag="ledger-value")   # body 크기 + SemiBold
-    title = _txt(sl, "title") or "감사합니다"
-    if line_count(title, span_w(7), d.spec["styles"]["display"],
-                  d.spec["fonts"]["display"]) > 1:
-        warn(f"slide {d._slide_i}: closing 제목이 2줄이다 — 1줄만 허용된다"
-             f"(2줄이면 cover와 구별이 사라진다). 문구를 줄여라")
-    d.text(s, "display", col_x(1), 402, span_w(7), 82, title, tag="closing-title")
+        d.text(s, "h2", col_x(8), y + 18, span_w(5), 28, row.get("value", ""),
+               tag="ledger-value")
+    title = _t(sl, "title") or "감사합니다"
+    th = g.bh(title, span_w(7), "cover")
+    d.text(s, "cover", col_x(1), g.bottom - th, span_w(7), th, title, tag="title")
 
 
-# ================================================================= §8.3 section
-def section(d: Deck, s, m, sl):
-    """반전 필드. 상단 164pt 덩어리와 하단 165pt 덩어리 사이 99pt 공백이 앵커다."""
-    num = str(sl.get("number", ""))
-    if len(num) > 2:
-        warn(f"slide {d._slide_i}: section 번호 '{num}' 는 세 자리 — 두 자리만 지원한다")
-    d.text(s, "mega", col_x(1), 56, span_w(7), 164, num, color="accent", tag="section-num")
-    _runner(d, s, sl, y=60)
-    d.text(s, "display", col_x(1), 319, span_w(9), 165, _txt(sl, "title"),
-           tag="section-title")
+def section(d, s, m, sl):
+    """반전 필드. 큰 번호가 아니라 눈썹 + 제목의 위치만으로 장을 가른다."""
+    g = L(d)
+    if sl.get("number"):
+        d.text(s, "display", col_x(1), g.eyebrow_y, span_w(3), 46,
+               str(sl["number"]), color="accent", tag="section-num")
+    if sl.get("runner"):
+        d.text(s, "micro", col_x(9), g.eyebrow_y, span_w(4), 15, sl["runner"],
+               color="muted", align="right", tag="runner")
+    title = _t(sl, "title")
+    th = g.bh(title, span_w(9), "cover")
+    d.text(s, "cover", col_x(1), g.bottom - th, span_w(9), th, title.split("\n"),
+           tag="title")
 
 
-# ================================================================= §8.4 statement
-def statement(d: Deck, s, m, sl):
-    text = _txt(sl, "text")
-    ST, FN = d.spec["styles"], d.spec["fonts"]
-    n = line_count(text, span_w(10), ST["display"], FN["display"])
-    full = bool(sl.get("body"))
-    _eyebrow(d, s, sl, span=7)
-    _runner(d, s, sl, y=60)
-    # 강조는 선이 아니라 색 — 문단(행) 단위로만
-    paras = text.split("\n")
-    acc = sl.get("accent_lines") or ([len(paras) - 1] if len(paras) > 1 else [])
-    if full:
-        d.text(s, "display", col_x(1), 120, span_w(10), 247, paras,
-               accent_paras=tuple(acc), tag="statement")
-        d.text(s, "body", col_x(1), 400, span_w(7), 84, sl["body"], tag="statement-body")
-    else:
-        if n > 2:
-            warn(f"slide {d._slide_i}: statement 본문이 {n}줄 — 보조 body 없이 3줄이면 "
-                 f"body를 넣어 '가득' 상태로 쓰거나 문구를 줄여라")
-        d.text(s, "display", col_x(1), 319, span_w(10), 165, paras,
-               accent_paras=tuple(acc), tag="statement")
+def statement(d, s, m, sl):
+    g = L(d)
+    g.head(s, sl, span=9)
+    text = _t(sl, "text")
+    th = g.bh(text, span_w(10), "display")
+    body = _paras(sl, "body")
+    bh_ = g.bh("\n".join(body), span_w(7), "lead") if body else 0
+    total = th + (g.gap + bh_ if bh_ else 0)
+    y = resolve_y(total, d.spec)
+    acc = sl.get("accent_lines") or []
+    d.text(s, "display", col_x(1), y, span_w(10), th, text.split("\n"),
+           accent_paras=tuple(acc), tag="statement")
+    if bh_:
+        d.text(s, "lead", col_x(1), y + th + g.gap, span_w(7), bh_, body,
+               color="ink2", tag="statement-body")
 
 
-# ================================================================= §8.5 two_col
-def two_col(d: Deck, s, m, sl):
-    """비대칭 4:7. col5를 통째로 비워 94pt 실공백. 하단 정렬이면 양쪽 모두 484."""
-    ST, FN = d.spec["styles"], d.spec["fonts"]
-    _eyebrow(d, s, sl, span=4)
-    title = _txt(sl, "title")
-    paras = [str(b) for b in (sl.get("bullets") or [])] or \
-            ([str(sl["body"])] if sl.get("body") else [])
-    lim = d.limits["bullets"]
-    if len(paras) > lim:
-        warn(f"slide {d._slide_i}: 본문 단락 {len(paras)}개 > {d.density} 한도 {lim}개")
-
-    body_h = block_h("\n".join(paras), span_w(7), ST["body"], FN["body"]) if paras else 0
-    full = body_h >= 150 or bool(sl.get("subhead"))
-
-    if full:
-        d.text(s, "h1", col_x(1), 108, span_w(4), 130, title, tag="col-title")
-        if sl.get("lead"):
-            d.text(s, "small", col_x(1), 262, span_w(4), 87, sl["lead"], color="muted")
-        if paras:
-            d.text(s, "body", col_x(6), 108, span_w(7), 223, paras, tag="bullets")
-        if sl.get("subhead"):
-            d.text(s, "h2", col_x(6), 363, span_w(7), 31, sl["subhead"])
-            d.text(s, "body", col_x(6), 400, span_w(7), 84, sl.get("subbody", ""))
-    else:
-        d.text(s, "h1", col_x(1), 398, span_w(4), 86, title, tag="col-title")
-        if paras:
-            d.text(s, "body", col_x(6), 372, span_w(7), 112, paras, tag="bullets")
+def two_col(d, s, m, sl):
+    """비대칭 4:7. 좌우 실공백 92pt."""
+    g = L(d)
+    g.head(s, sl, span=7)
+    lead = _t(sl, "lead")
+    body = _paras(sl, "bullets", "body")
+    lw, rw = span_w(4), span_w(7)
+    lh = g.bh(lead, lw, "lead") if lead else 0
+    rh = g.bh("\n".join(body), rw, "body") if body else 0
+    sub, subb = _t(sl, "subhead"), _t(sl, "subbody")
+    sh_ = g.bh(sub, rw, "h2") if sub else 0
+    sbh = g.bh(subb, rw, "body") if subb else 0
+    right_total = rh + (g.gap + sh_ if sh_ else 0) + (8 + sbh if sbh else 0)
+    y = resolve_y(max(lh, right_total), d.spec)
+    if lh:
+        d.text(s, "lead", col_x(1), y, lw, lh, lead, color="muted", tag="lead")
+    if rh:
+        d.text(s, "body", col_x(6), y, rw, rh, body, color="ink2", tag="body")
+    if sh_:
+        d.text(s, "h2", col_x(6), y + rh + g.gap, rw, sh_, sub, tag="subhead")
+        if sbh:
+            d.text(s, "body", col_x(6), y + rh + g.gap + sh_ + 8, rw, sbh, subb,
+                   color="ink2", tag="subbody")
 
 
-# ================================================================= §8.6–8.10 cards
 CARD_MODE = {2: "pair", 3: "ledger", 4: "quad", 5: "dense", 6: "dense"}
 
 
-def cards_mode(items: list) -> str:
+def cards(d, s, m, sl):
+    items = sl.get("items") or []
     n = len(items)
     if n not in CARD_MODE:
-        raise SystemExit(f"cards는 항목 2~6개만 지원한다 (받은 값: {n}). "
-                         f"7개 이상은 슬라이드를 쪼개라. 1개는 statement/data를 써라.")
-    return CARD_MODE[n]
+        raise SystemExit(f"cards는 항목 2~6개만 지원한다 (받은 값: {n}).")
+    g = L(d)
+    g.head(s, sl, span=9)
+    mode = CARD_MODE[n]
+    gv = d.spec["cards"]["gutter_v"]
+    BIAS = 0.38      # 남는 높이의 38%만 위에 둔다 — 정중앙보다 살짝 위가 안정적이다
 
+    def cell_h(it, w):
+        h = 20 + g.bh(it.get("title", ""), w, "h2")
+        if it.get("body"):
+            h += 8 + g.bh(it["body"], w, "small")
+        return h
 
-def cards(d: Deck, s, m, sl):
-    items = sl.get("items") or []
-    mode = cards_mode(items)
-    _eyebrow(d, s, sl, span=7)
-    d.text(s, "h1", col_x(1), 86, span_w(9), 43, _txt(sl, "title"), tag="cards-head")
-    {"pair": _cards_pair, "ledger": _cards_ledger,
-     "quad": _cards_quad, "dense": _cards_dense}[mode](d, s, items)
+    def cell(it, x, w, y):
+        d.text(s, "micro", x, y, w, 15, str(it.get("index", "")),
+               color="accent", tag="card-index")
+        th = g.bh(it.get("title", ""), w, "h2")
+        d.text(s, "h2", x, y + 20, w, th, it.get("title", ""), tag="card-title")
+        if it.get("body"):
+            bh_ = g.bh(it["body"], w, "small")
+            d.text(s, "small", x, y + 20 + th + 8, w, bh_, it["body"],
+                   color="muted", tag="card-body")
+
+    # 행은 실제 높이로 위에서부터 쌓는다. 남은 높이에 균등 분배하면 흩어져 보인다.
+    def place(total):
+        return g.top + max(0.0, (g.h - total) * BIAS)
+
+    if mode == "pair":
+        cols = ((1, 5), (7, 6))
+        y = place(max(cell_h(it, span_w(sp)) for it, (c, sp) in zip(items, cols)))
+        for it, (c, sp) in zip(items, cols):
+            cell(it, col_x(c), span_w(sp), y)
+    elif mode == "ledger":
+        rows_h = []
+        for it in items[:3]:
+            rows_h.append(max(g.bh(it.get("title", ""), span_w(4), "h2"),
+                              g.bh(it.get("body", ""), span_w(6), "body") if it.get("body") else 0))
+        y = place(sum(rows_h) + gv * (len(rows_h) - 1))
+        for it in items[:3]:
+            th = g.bh(it.get("title", ""), span_w(4), "h2")
+            bh_ = g.bh(it.get("body", ""), span_w(6), "body") if it.get("body") else 0
+            d.text(s, "h2", col_x(1), y, span_w(1), th, str(it.get("index", "")),
+                   color="accent", tag="ledger-index")
+            d.text(s, "h2", col_x(2), y, span_w(4), th, it.get("title", ""),
+                   tag="ledger-title")
+            if bh_:
+                d.text(s, "body", col_x(7), y + 2, span_w(6), bh_, it["body"],
+                       color="ink2", tag="ledger-body")
+            y += max(th, bh_) + gv
+    else:
+        slots = {"quad": [(1, 5, 0), (7, 6, 0), (1, 5, 1), (7, 6, 1)],
+                 "dense5": [(1, 7, 0), (9, 4, 0), (1, 4, 1), (5, 4, 1), (9, 4, 1)],
+                 "dense6": [(1, 4, 0), (5, 4, 0), (9, 4, 0),
+                            (1, 4, 1), (5, 4, 1), (9, 4, 1)]}[
+            "quad" if mode == "quad" else ("dense5" if n == 5 else "dense6")]
+        row0 = max(cell_h(it, span_w(sp)) for it, (c, sp, r) in zip(items, slots) if r == 0)
+        row1 = max([cell_h(it, span_w(sp)) for it, (c, sp, r) in zip(items, slots) if r == 1]
+                   or [0])
+        y0 = place(row0 + (gv + row1 if row1 else 0))
+        for it, (c, sp, r) in zip(items, slots):
+            cell(it, col_x(c), span_w(sp), y0 + r * (row0 + gv))
     return mode
 
 
-def _card_body(d, s, it, x, w, iy, ty, by, t_style, b_style, b_color="muted"):
-    d.text(s, "eyebrow", x, iy, w, 24, str(it.get("index", "")),
-           color="accent", tag="card-index")
-    d.text(s, "h2", x, ty, w, 62, it.get("title", ""), tag="card-title")
-    if it.get("body"):
-        d.text(s, b_style, x, by, w, 84, it["body"], color=b_color, tag="card-body")
-
-
-def _cards_pair(d, s, items):
-    """불균등 5:6 + 수직 엇단 84pt. 테두리·배경 채움 없음."""
-    _card_body(d, s, items[0], col_x(1), span_w(5), 177, 209, 287, "h2", "body")
-    _card_body(d, s, items[1], col_x(7), span_w(6), 261, 293, 371, "h2", "body")
-
-
-def _cards_ledger(d, s, items):
-    """전폭 3행 원장. 행 구분선 없음 — 46pt 색인 숫자가 행 시작점을 잡는다."""
-    for i, it in enumerate(items[:3]):
-        y = 172 + i * 109                     # 행 높이 94, step 109
-        d.text(s, "stat_sub2", col_x(1), y, 70, 46, str(it.get("index", "")),
-               color="accent", tag="ledger-index")
-        d.text(s, "h2", col_x(2), y + 6, span_w(4), 62, it.get("title", ""),
-               tag="ledger-title")
-        if it.get("body"):
-            d.text(s, "body", col_x(7), y + 4, span_w(6), 84, it["body"],
-                   color="muted", tag="ledger-body")
-
-
-def _cards_quad(d, s, items):
-    """불균등 2x2. 열폭 326 / 396. 균등 4분할이 아니다."""
-    slots = [(col_x(1), span_w(5), 177), (col_x(7), span_w(6), 177),
-             (col_x(1), span_w(5), 338), (col_x(7), span_w(6), 338)]
-    for it, (x, w, y) in zip(items[:4], slots):
-        _card_body(d, s, it, x, w, y, y + 30, y + 70, "h2", "small")
-
-
-def _cards_dense(d, s, items):
-    """3x2. 항목 5개면 첫 행을 두 칸으로 바꾼다 (균등 배치 회피)."""
-    n = len(items)
-    if n == 5:
-        slots = [(col_x(1), span_w(7), 177), (col_x(9), span_w(4), 177),
-                 (col_x(1), span_w(4), 338), (col_x(5), span_w(4), 338),
-                 (col_x(9), span_w(4), 338)]
-    else:
-        slots = [(col_x(1), span_w(4), 177), (col_x(5), span_w(4), 177),
-                 (col_x(9), span_w(4), 177), (col_x(1), span_w(4), 338),
-                 (col_x(5), span_w(4), 338), (col_x(9), span_w(4), 338)]
-    for it, (x, w, y) in zip(items[:6], slots):
-        _card_body(d, s, it, x, w, y, y + 30, y + 100, "h2", "small")
-
-
-# ================================================================= §8.11 data
-def data(d: Deck, s, m, sl):
+def data(d, s, m, sl):
+    g = L(d)
+    g.head(s, sl, span=7)
     items = sl.get("items") or []
     if not items:
         return
     hero, subs = items[0], items[1:4]
-    _eyebrow(d, s, sl, span=7)
-    if subs:
-        d.text(s, "stat1", col_x(1), 140, span_w(6), 136, str(hero.get("value", "")),
-               suffix=hero.get("unit"), suffix_style="stat_sub", tag="hero")
-        d.hero_rule(s, col_x(1), 292, span_w(6))
-        if hero.get("caption"):      # 히어로 캡션은 muted가 아니라 figure
-            d.text(s, "body", col_x(1), 308, span_w(5), 84, hero["caption"], tag="hero-cap")
-        for i, it in enumerate(subs):
-            y = 140 + i * 104                 # 종속 행 step 104
-            d.text(s, "stat_sub2", col_x(8), y, span_w(5), 46, str(it.get("value", "")),
-                   suffix=it.get("unit"), suffix_style="h2", tag="sub-value")
-            if it.get("caption"):
-                d.text(s, "small", col_x(8), y + 54, span_w(5), 44, it["caption"],
-                       color="muted", tag="sub-label")
-    else:
-        _runner(d, s, sl, y=60)
-        d.text(s, "stat1", col_x(1), 260, span_w(9), 136, str(hero.get("value", "")),
-               suffix=hero.get("unit"), suffix_style="stat_sub", tag="hero")
-        d.hero_rule(s, col_x(1), 412, span_w(9))
-        if hero.get("caption"):
-            d.text(s, "body", col_x(1), 428, span_w(7), 56, hero["caption"], tag="hero-cap")
+    hw = span_w(6) if subs else span_w(9)
+    hh = g.bh(str(hero.get("value", "")), hw, "hero")
+    cap = hero.get("caption", "")
+    ch = g.bh(cap, span_w(5) if subs else span_w(7), "body") if cap else 0
+    hero_total = hh + 14 + (2 + 12 + ch if ch else 0)
+    subs_h = (len(subs) - 1) * 66 + 58 if subs else 0
+    y = resolve_y(max(hero_total, subs_h), d.spec)   # 두 컬럼을 같은 기준선에 세운다
+    d.text(s, "hero", col_x(1), y, hw, hh, str(hero.get("value", "")),
+           suffix=hero.get("unit"), suffix_style="h1", tag="hero")
+    d.hero_rule(s, col_x(1), y + hh + 14, hw)
+    if ch:
+        d.text(s, "body", col_x(1), y + hh + 14 + 12, span_w(5) if subs else span_w(7),
+               ch, cap, color="ink2", tag="hero-cap")
+    step = max(66.0, (max(hero_total, subs_h)) / max(1, len(subs)))
+    for i, it in enumerate(subs):
+        sy = y + i * step
+        d.text(s, "h1", col_x(8), sy, span_w(5), 38, str(it.get("value", "")),
+               suffix=it.get("unit"), suffix_style="small", tag="sub-value")
+        if it.get("caption"):
+            d.text(s, "small", col_x(8), sy + 38, span_w(5), 20, it["caption"],
+                   color="muted", tag="sub-label")
 
 
-# ================================================================= §8.12 quote
-def quote(d: Deck, s, m, sl):
-    """항상 하단 정렬. col1을 통째로 비운 70pt 들여쓰기가 앵커다."""
-    ST, FN = d.spec["styles"], d.spec["fonts"]
-    text = _txt(sl, "text")
-    h = block_h(text, span_w(9), ST["quote"], FN["head"])
-    # §14.5 — 반올림으로 1pt 차가 나는 계산값은 좌표 표의 표기값을 쓴다 (3줄 232 / 2줄 288 / 4줄 176)
-    d.text(s, "quote", col_x(2), round(401 - h), span_w(9), round(h), text, tag="quote")
+def quote(d, s, m, sl):
+    """col1 을 비운 들여쓰기가 앵커다. 인용부호 도형·세로선 없음."""
+    g = L(d)
+    text = _t(sl, "text")
+    th = g.bh(text, span_w(8), "h1")
+    # 아래에서부터 쌓는다 — 부기 하단이 본문 하한에 정확히 닿는다
+    y_note = g.bottom - 18 if sl.get("note") else g.bottom
+    y_src = y_note - (18 if sl.get("source") else 0)
+    y = y_src - 20 - th
+    d.text(s, "h1", col_x(2), y, span_w(8), th, text, tag="quote")
     if sl.get("source"):
-        d.text(s, "eyebrow", col_x(2), 433, span_w(5), 24, sl["source"],
+        d.text(s, "micro", col_x(2), y_src, span_w(5), 15, sl["source"],
                color="accent", tag="quote-source")
     if sl.get("note"):
-        d.text(s, "small", col_x(2), 461, span_w(5), 23, sl["note"], color="muted")
+        d.text(s, "small", col_x(2), y_note, span_w(5), 18, sl["note"],
+               color="muted", tag="quote-note")
 
 
-# ================================================================= §8.13 table
-def table(d: Deck, s, m, sl):
-    """네이티브 표를 쓰지 않는다. 열은 그리드 스냅 + 24pt 공백 + 우정렬이 가른다."""
+def table(d, s, m, sl):
     T = d.spec["table"]
+    g = L(d)
+    g.head(s, sl, span=9)
     heads, rows = sl.get("headers") or [], sl.get("rows") or []
     n = len(heads) or (len(rows[0]) if rows else 0)
     if n not in T["col_pattern"]:
-        raise SystemExit(f"table은 2~5열만 지원한다 (받은 값: {n}). 열을 줄이거나 슬라이드를 쪼개라.")
+        raise SystemExit(f"table 은 2~5열만 지원한다 (받은 값: {n}).")
     lim = d.limits["table_rows"]
     if len(rows) > lim:
-        warn(f"slide {d._slide_i}: 표 {len(rows)}행 > {d.density} 한도 {lim}행 "
-             f"— 행 높이를 줄이지 말고 슬라이드를 나눠라")
+        warn(f"slide {d._slide_i}: 표 {len(rows)}행 > 한도 {lim}행 — 슬라이드를 나눠라")
     rows = rows[:lim]
-    cols = table_columns(d, n)
-
-    _eyebrow(d, s, sl, span=7)
-    d.text(s, "h1", col_x(1), 86, span_w(9), 43, _txt(sl, "title"), tag="table-head")
-    d.plate(s, col_x(1), T["header_y"], span_w(12), T["header_h"], color="figure")
+    cols, pad = table_columns(d, n), T["pad_x"]
+    hy = g.top
+    d.plate(s, col_x(1), hy, span_w(12), T["header_h"], color="figure")
     for (x, w, align, tx), h in zip(cols, heads[:n]):
-        d.text(s, "small", tx if align == "left" else x, T["header_y"] + 6,
-               w - T["pad_x"], 22, str(h), color="ground", align=align, tag="th")
-    for r_i, row in enumerate(rows):
-        y = T["first_row_y"] + r_i * T["row_h"]
+        d.text(s, "small", tx if align == "left" else x, hy + 7, w - pad, 18,
+               str(h), color="ground", align=align, tag="th")
+    for i, row in enumerate(rows):
+        y = hy + T["header_h"] + i * T["row_h"]
         for (x, w, align, tx), cell in zip(cols, row[:n]):
-            d.text(s, "body", tx if align == "left" else x, y + 6,
-                   w - T["pad_x"], 28, str(cell), align=align,
+            d.text(s, "body", tx if align == "left" else x, y + 8, w - pad, 20,
+                   str(cell), align=align, color="figure" if align == "left" else "ink2",
                    font_key="head" if align == "right" else None, tag="td")
-        if r_i < len(rows) - 1:               # 마지막 행 뒤에는 선을 넣지 않는다
-            d.table_rule(s, col_x(1), y + 33.5, span_w(12))
+        if i < len(rows) - 1:
+            d.table_rule(s, col_x(1), y + T["row_h"] - 0.5, span_w(12))
     if sl.get("footnote"):
-        d.text(s, "small", col_x(1), 424, span_w(7), 44, sl["footnote"], color="muted")
+        d.text(s, "micro", col_x(1), g.bottom - 16, span_w(8), 15, sl["footnote"],
+               color="muted", tag="footnote")
 
 
-def table_columns(d: Deck, n: int):
-    """[(x, w, align, text_x)]. 첫 열만 좌정렬, 나머지는 우정렬 (§11)."""
+def table_columns(d, n):
     spans = d.spec["table"]["col_pattern"][n]
     pad = d.spec["table"]["pad_x"]
     out, col = [], 1
@@ -299,46 +322,48 @@ def table_columns(d: Deck, n: int):
     return out
 
 
-# ================================================================= §8.14–8.15 image
-def image_split(d: Deck, s, m, sl):
-    """이미지는 우·상·하 3변 재단. 좌우를 뒤집는 변형은 만들지 않는다 (대칭 반복 금지)."""
-    d.picture(s, sl["image"], col_x(7), 0, 468, 540, sl.get("fit", "cover"),
+def image_split(d, s, m, sl):
+    g = L(d)
+    IW = 392
+    d.picture(s, sl["image"], 960 - IW, 0, IW, 540, sl.get("fit", "cover"),
               focus=sl.get("focus", "center"))
-    _eyebrow(d, s, sl, span=5)
-    d.text(s, "h1", col_x(1), 108, span_w(5), 130, _txt(sl, "title"), tag="split-title")
-    body = [str(b) for b in (sl.get("bullets") or [])] or \
-           ([str(sl["body"])] if sl.get("body") else [])
+    g.head(s, sl, span=6)
+    body = _paras(sl, "bullets", "body")
     if body:
-        d.text(s, "body", col_x(1), 262, span_w(5), 195, body, tag="split-body")
+        bh_ = g.bh("\n".join(body), span_w(6), "body")
+        d.text(s, "body", col_x(1), resolve_y(bh_, d.spec), span_w(6), bh_, body,
+               color="ink2", tag="body")
 
 
-def image_full(d: Deck, s, m, sl):
-    """이미지 전출혈 + ground 단색 판. 판이 문제 3의 앵커 장치다."""
+def image_full(d, s, m, sl):
     d.picture(s, sl["image"], 0, 0, 960, 540, sl.get("fit", "cover"),
               focus=sl.get("focus", "center"))
-    d.plate(s, 0, 300, 560, 240, color="ground")
+    PW, PH = 470, 186
+    d.plate(s, 0, 540 - PH, PW, PH, color="ground")
     if sl.get("eyebrow"):
-        d.text(s, "eyebrow", 72, 340, 440, 24, sl["eyebrow"], color="accent", tag="eyebrow")
-    d.text(s, "h1", 72, 372, 440, 87, _txt(sl, "title"), tag="full-title")
+        d.text(s, "micro", 58, 540 - PH + 26, PW - 116, 15, sl["eyebrow"],
+               color="accent", tag="eyebrow")
+    title = _t(sl, "title")
+    th = block_h(title, PW - 116, d.spec["styles"]["h1"], d.spec["fonts"]["head"])
+    d.text(s, "h1", 58, 540 - PH + 48, PW - 116, th, title, tag="title")
     if sl.get("caption"):
-        d.text(s, "small", 72, 471, 440, 22, sl["caption"], color="muted")
+        d.text(s, "small", 58, 540 - 44, PW - 116, 18, sl["caption"],
+               color="muted", tag="caption")
 
 
 LAYOUTS = {"cover": cover, "closing": closing, "section": section,
            "statement": statement, "two_col": two_col, "cards": cards,
            "data": data, "quote": quote, "table": table,
            "image_split": image_split, "image_full": image_full}
-INVERTED = {"section", "closing"}          # 반전 필드 — 배경색으로 처리 (§12)
+INVERTED = {"section", "closing"}
 
 
-# ================================================================= 빌드
 def build(outline_path, out_path=None, spec_path=None, embed=False):
-    with open(outline_path, encoding="utf-8") as f:
-        o = yaml.safe_load(f)
+    o = yaml.safe_load(open(outline_path, encoding="utf-8"))
     spec = load_spec(spec_path)
     m = o.get("meta") or {}
-
     base = os.path.dirname(os.path.abspath(outline_path))
+
     def _abs(v):
         v = os.path.expanduser(str(v))
         return v if os.path.isabs(v) else os.path.normpath(os.path.join(base, v))
@@ -355,7 +380,7 @@ def build(outline_path, out_path=None, spec_path=None, embed=False):
     for i, sl in enumerate(slides, 1):
         lay = sl.get("layout")
         if lay not in LAYOUTS:
-            raise SystemExit(f"slide {i}: 알 수 없는 layout '{lay}' — {sorted(LAYOUTS)}")
+            raise SystemExit(f"slide {i}: 알 수 없는 layout '{lay}'")
         run = run + 1 if lay == prev else 1
         if run > spec["rhythm"]["max_same_layout_run"]:
             warn(f"slide {i}: '{lay}' {run}연속 — 리듬이 죽는다")
@@ -364,21 +389,18 @@ def build(outline_path, out_path=None, spec_path=None, embed=False):
         mode = LAYOUTS[lay](d, s, m, sl)
         if lay == "cards":
             if mode == prev_mode:
-                warn(f"slide {i}: cards 모드 '{mode}' 가 직전 장과 같다 — "
-                     f"항목 수를 조정해 구성을 바꿔라 (max_same_cards_mode_run 1)")
+                warn(f"slide {i}: cards 모드 '{mode}' 가 직전 장과 같다")
             prev_mode = mode
         else:
             prev_mode = None
 
     out = out_path or m.get("output") or "out/deck.pptx"
     pptx, man = d.save(out, embed=embed or bool(m.get("embed_fonts")))
-
-    for b in d.manifest:                      # 기하 자기검증
-        if b["x"] + b["w"] > CONTENT_R + 0.5 and b["tag"] not in ("full-title", "eyebrow"):
-            warn(f"slide {b['slide']}: '{b['tag']}' 오른변 {b['x']+b['w']:.0f} > 888 (그리드 밖)")
+    for b in d.manifest:
+        if b["x"] + b["w"] > content_r() + 0.5 and not b["tag"] in ("title", "caption", "eyebrow"):
+            warn(f"slide {b['slide']}: '{b['tag']}' 오른변 {b['x']+b['w']:.0f} > {content_r():.0f}")
         if b["y"] + b["h"] > 540.5:
-            warn(f"slide {b['slide']}: '{b['tag']}' 캔버스 하단 이탈")
-
+            warn(f"slide {b['slide']}: '{b['tag']}' 캔버스 하단 이탈 ({b['y']+b['h']:.0f})")
     print(f"✓ {pptx}  ({len(slides)} slides, palette={d.pal_name}, density={d.density})")
     print(f"  manifest: {man}")
     if getattr(d, "embedded", 0):
