@@ -63,7 +63,8 @@ styles:
   lead:    {font: body,    size: 15.5, leading: 1.45, tracking: 0}     # 리드 문장
   body:    {font: body,    size: 13,   leading: 1.54, tracking: 0}     # 본문(주력)
   small:   {font: body,    size: 11.5, leading: 1.48, tracking: 0}     # 캡션 · 표 셀
-  micro:   {font: label,   size: 10.5, leading: 1.40, tracking: 60}    # 눈썹 · 러너 · 각주
+  micro:   {font: label,   size: 10.5, leading: 1.40, tracking: 60}
+  code:    {font: mono,    size: 13,   leading: 1.45, tracking: 0}    # 눈썹 · 러너 · 각주
 
 style_usage:
   hero:    [data.hero]
@@ -81,6 +82,7 @@ fonts:
   head:    "Pretendard SemiBold"
   body:    "Pretendard"
   label:   "Pretendard Medium"
+  mono:    "Consolas"              # Office 동봉이라 Mac·Windows 모두 존재한다
 
 anchors:
   # 하단 정렬은 쓰지 않는다. 빈 화면에 글자를 왼쪽 아래로 몰면 버려진 것처럼 보인다.
@@ -123,6 +125,9 @@ shapes:
   chain_step:   53      # 사슬 행 step (실측 53.3)
   connector_w:  1       # 연결선 두께 (실측 1.0pt 193회)
   divider_w:    1       # 전폭 구분선 (실측 845 길이 73회)
+  code_pad_x:   26      # 코드 패널 좌우 안여백
+  code_pad_y:   22      # 코드 패널 상하 안여백
+  code_comment_col: 36  # 주석 시작 칸 (한글은 두 칸으로 센다)
   # --- 다이어그램 (Dive 10·17·26·27쪽 실측) ---
   node_d:       23      # 타임라인 마디 (실측 23.0)
   node_year_dy: -50     # 축 대비 연도 y (실측 296.6 vs 346.3)

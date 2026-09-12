@@ -225,7 +225,7 @@ def assert_plate_ok(w: float, h: float, has_text: bool, kind: str, spec=None):
 
 
 # ---------------------------------------------------------------- 폰트 적용
-def _apply_font(run, name, size, color, *, bold=False, tracking=0):
+def _apply_font(run, name, size, color, *, bold=False, tracking=0, ea=None):
     f = run.font
     f.name = name                      # <a:latin>
     f.size = Pt(size)
@@ -237,12 +237,13 @@ def _apply_font(run, name, size, color, *, bold=False, tracking=0):
         if el is None:
             el = rPr.makeelement(qn(tag), {})
             rPr.append(el)
-        el.set("typeface", name)
+        # 고정폭(Consolas)에는 한글 글리프가 없다 -> ea 만 한글 글꼴로 돌린다
+        el.set("typeface", (ea or name) if tag == "a:ea" else name)
     if tracking:
         rPr.set("spc", str(int(tracking)))
 
 
-def _end_para(p, name, size, color):
+def _end_para(p, name, size, color, ea=None):
     """<a:endParaRPr>를 마지막 run과 같은 서식으로 채운다."""
     pPr = p._p
     el = pPr.find(qn("a:endParaRPr"))
@@ -255,7 +256,7 @@ def _end_para(p, name, size, color):
         c = el.find(qn(tag))
         if c is None:
             c = el.makeelement(qn(tag), {}); el.append(c)
-        c.set("typeface", name)
+        c.set("typeface", (ea or name) if tag == "a:ea" else name)
     fill = el.find(qn("a:solidFill"))
     if fill is None:
         fill = el.makeelement(qn("a:solidFill"), {}); el.insert(0, fill)
@@ -509,6 +510,14 @@ class Deck:
         return self._rect(s, x, y, w, self.spec["rules"]["table_rule_w"],
                           "hairline", "table_rule", True)
 
+    def notes(self, s, text):
+        """자세한 설명은 슬라이드가 아니라 여기로 내린다.
+        슬라이드는 시각 자료이고, 말로 할 것은 발표 노트에 적는다."""
+        if not text:
+            return
+        s.notes_slide.notes_text_frame.text = str(text)
+        self.note_count = getattr(self, "note_count", 0) + 1
+
     def picture(self, s, path, x, y, w, h, fit="cover", tag="image", focus="center"):
         """상자에 이미지를 앉힌다.
 
@@ -562,7 +571,9 @@ class Deck:
              exact_center=False):
         """content: str 또는 list[str](문단들). style은 spec.styles의 키여야 한다."""
         st = self.spec["styles"][style]
-        font = self.spec["fonts"][font_key or st["font"]]
+        fkey = font_key or st["font"]
+        font = self.spec["fonts"][fkey]
+        ea = self.spec["fonts"]["body"] if fkey == "mono" else None
         paras = content if isinstance(content, list) else [content]
 
         box = s.shapes.add_textbox(Pt(x), Pt(y), Pt(w), Pt(h))
@@ -585,8 +596,8 @@ class Deck:
             r = p.add_run(); r.text = str(ptext)
             _apply_font(r, font, st["size"],
                         self.c("accent") if i in accent_paras else self.c(color),
-                        tracking=st.get("tracking", 0))
-            _end_para(p, font, st["size"], self.c(color))
+                        tracking=st.get("tracking", 0), ea=ea)
+            _end_para(p, font, st["size"], self.c(color), ea=ea)
             if suffix and i == len(paras) - 1:
                 sfx = str(suffix)
                 if sfx[0].isalpha() or "가" <= sfx[0] <= "힣":   # 27% 는 붙이고 62 시간 은 띄운다

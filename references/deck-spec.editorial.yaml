@@ -59,6 +59,7 @@ styles:
   lead:      {font: body,    size: 18,  leading: 1.55, tracking: 0}
   cover:     {font: display, size: 84,  leading: 0.98, tracking: -200}
   hero:      {font: display, size: 160, leading: 0.85, tracking: -400}
+  code:      {font: mono,    size: 14,  leading: 1.45, tracking: 0}
 
 # 스타일 용도 고정 — 아무 데나 쓰지 않는다
 style_usage:
@@ -82,6 +83,7 @@ fonts:
   head:    "Pretendard SemiBold"
   body:    "Pretendard"
   label:   "Pretendard Medium"
+  mono:    "Consolas"
 
 # --- 정렬 엔진 ---------------------------------------------------------------
 anchors:
@@ -135,6 +137,9 @@ shapes:
   chain_step: 53
   connector_w: 1
   divider_w: 1
+  code_pad_x: 26
+  code_pad_y: 22
+  code_comment_col: 36
   node_d: 23
   node_year_dy: -50
   node_title_dy: 28
@@ -144,8 +149,8 @@ shapes:
   stair_w_min: 0.4
   stair_w_max: 0.73
   stair_badge_d: 35
-  stair_pad_x: 30
-  stair_text_x: 82
+  stair_pad_x: 16
+  stair_text_x: 58
   compare_h: 212
   compare_gap: 25
 

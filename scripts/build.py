@@ -629,6 +629,62 @@ def nest(d, s, m, sl):
                color="ground", font_key="head", tag="nest-conclusion")
 
 
+def dw(t: str) -> int:
+    """표시 폭. 한글·전각은 두 칸으로 센다 — 주석 칸을 맞추려면 이게 있어야 한다."""
+    n = 0
+    for ch in str(t):
+        n += 2 if ("\u1100" <= ch <= "\u11ff" or "\u3000" <= ch <= "\u303f"
+                   or "\u3130" <= ch <= "\u318f" or "\uac00" <= ch <= "\ud7af"
+                   or "\uff00" <= ch <= "\uff60") else 1
+    return n
+
+
+def code(d, s, m, sl):
+    """코드 블록. 고정폭은 Consolas(Office 동봉이라 Mac·Windows 모두 있다).
+
+    주석은 칸을 맞춘다 — 한글을 두 칸으로 세지 않으면 어긋난다.
+    마지막 줄 뒤에 줄바꿈을 붙이지 않는다(빈 문단이 생겨 글이 위로 붙는다).
+    """
+    g = L(d)
+    SH = d.spec["shapes"]
+    g.head(s, sl, span=12)
+    y = g.top
+    if sl.get("lead"):
+        lh = g.bh(sl["lead"], span_w(10), "lead")
+        d.text(s, "lead", col_x(1), y, span_w(10), lh, sl["lead"],
+               color="muted", tag="lead")
+    y = g.block
+
+    raw = [str(l) for l in (sl.get("code") or [])]
+    col = sl.get("comment_col", SH["code_comment_col"])
+    lines = []
+    for l in raw:
+        if "#" in l and not l.lstrip().startswith("#"):
+            head_, note = l.split("#", 1)
+            head_ = head_.rstrip()
+            lines.append(head_ + " " * max(1, col - dw(head_)) + "#" + note)
+        else:
+            lines.append(l)
+
+    st = d.spec["styles"]["code"]
+    pw = span_w(12)
+    inner = pw - SH["code_pad_x"] * 2
+    # 넘침은 눈으로 찾지 않는다 — 빌드할 때 잰다
+    widest = max((block_w(l, st, d.spec["fonts"]["mono"]) for l in lines), default=0)
+    if widest > inner:
+        warn(f"slide {d._slide_i}: 코드가 패널을 넘는다 ({widest:.0f}pt > {inner:.0f}pt) "
+             f"— 주석 칸을 줄이거나 줄을 의도적으로 나눠라")
+    ch = len(lines) * st["size"] * st["leading"] + SH["code_pad_y"] * 2
+    d.panel(s, col_x(1), y, pw, ch, color="figure", radius=SH["panel_radius"])
+    d.text(s, "code", col_x(1) + SH["code_pad_x"], y + SH["code_pad_y"], inner,
+           ch - SH["code_pad_y"] * 2, lines, color="ground",
+           accent_paras=tuple(i for i, l in enumerate(lines) if l.lstrip().startswith("#")),
+           tag="code")
+    if sl.get("caption"):
+        d.text(s, "small", col_x(1), y + ch + 14, span_w(9), 20, sl["caption"],
+               color="muted", tag="caption")
+
+
 def table(d, s, m, sl):
     T = d.spec["table"]
     g = L(d)
@@ -710,6 +766,7 @@ LAYOUTS = {"cover": cover, "closing": closing, "section": section, "chain": chai
            "statement": statement, "two_col": two_col, "cards": cards,
            "panel_list": panel_list, "card_grid": card_grid,
            "timeline": timeline, "stair": stair, "compare": compare, "nest": nest,
+           "code": code,
            "data": data, "quote": quote, "table": table,
            "image_split": image_split, "image_full": image_full}
 INVERTED = {"section", "closing"}
@@ -744,6 +801,7 @@ def build(outline_path, out_path=None, spec_path=None, embed=False):
         prev = lay
         s = d.slide(invert=lay in INVERTED or bool(sl.get("invert")))
         mode = LAYOUTS[lay](d, s, m, sl)
+        d.notes(s, sl.get("notes"))     # 자세한 설명은 노트로
         if lay == "cards":
             if mode == prev_mode:
                 warn(f"slide {i}: cards 모드 '{mode}' 가 직전 장과 같다")

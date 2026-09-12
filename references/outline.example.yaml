@@ -156,6 +156,23 @@ slides:
       - {name: "예측", body: "정렬된 입력 위에서만 의미가 있는 모델"}
     conclusion: "집계 안에 정렬, 그 안에 예측"
 
+  # code · 고정폭 코드 블록 + 발표 노트
+  - layout: code
+    eyebrow: "13 | 확인"
+    title: "주기를 맞춘 뒤 오차 재계산"
+    lead: "두 데이터를 같은 주기로 모은 뒤 오차를 다시 잰다"
+    notes: |
+      resample('W') 는 일 단위 데이터를 주 단위로 묶는다. 발주 주기와 맞추기 위한 것이다.
+      mae 가 줄지 않으면 주기가 원인이 아니라는 뜻이므로, 그때는 모델을 본다.
+      실습에서는 3분기 데이터만 써도 차이가 보인다.
+    code:
+      - "import pandas as pd"
+      - ""
+      - "sales = sales.resample('W').sum()   # 일 단위를 주 단위로"
+      - "df = orders.join(sales, how='left')   # 주기를 맞춰 합친다"
+      - "mae = (df.pred - df.real).abs().mean()   # 평균 절대 오차"
+    caption: "출처 · 운영 노트 3분기"
+
   # 14 quote · letterpress
   - layout: quote
     text: "규칙을 문서로 못 박기 전까지, 우리가 공정하다고 부른 것은 그날 조교의 컨디션이었다."

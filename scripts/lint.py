@@ -173,6 +173,25 @@ def main(path, spec_path=None):
         if len(titles) >= 4 and max(Lt) - min(Lt) <= 1:
             wrn(0, "PARALLEL", f"제목 길이가 {Lt}로 전부 같다")
 
+    # --- 'PPT 제작 원칙' §3 문구 규칙 --------------------------------
+    COUNT = re.compile(r"(한|두|세|네|다섯|여섯|\d+)\s*(개|가지|단계|번)\s*(입니다|이다)")
+    CONJ = re.compile(r"[가-힣]고,\s")
+    for i, sl in enumerate(slides, 1):
+        t = str(sl.get("title", ""))
+        if COUNT.search(t):
+            wrn(i, "TITLE_COUNT", f"제목이 개수를 예고한다 — 목록이 이미 개수를 보여 준다: {t!r}")
+        if re.search(r"(습니다|입니다)$", t) and len(t) > 18:
+            wrn(i, "TITLE_LONG", f"제목이 길고 서술어로 끝난다 — 짧은 명사구 쪽이 낫다: {t!r}")
+        for tx in texts_of(sl):
+            if len(CONJ.findall(tx)) >= 2:
+                wrn(i, "COMMA", f"연결어미 뒤 쉼표가 반복된다 — 빼는 편이 자연스럽다: {tx[:34]!r}")
+    # 슬라이드에 설명이 길게 들어갔는데 발표 노트가 비어 있으면 노트로 내리라고 권고
+    for i, sl in enumerate(slides, 1):
+        body_len = sum(len(t) for t in texts_of(sl))
+        if body_len > 260 and not sl.get("notes"):
+            wrn(i, "NOTES", f"슬라이드 글자가 {body_len}자인데 발표 노트가 비었다 — "
+                            f"자세한 설명은 notes 로 내려라")
+
     gaps = glyph_gaps(spec, [t for sl in slides for t in texts_of(sl)]
                       + [str(v) for v in m.values()])
     for ch, cnt in sorted(gaps.items(), key=lambda kv: -kv[1]):

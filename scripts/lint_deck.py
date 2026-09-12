@@ -84,7 +84,7 @@ def main(path):
                 # 계단이 관계를 나타내는 장치이기 때문이다 — 사용자 덱도 82.1/129.6/177.1 이다.
                 if b["tag"].startswith(("chain-", "badge-", "panel-", "chip-",
                                         "card-", "stair-", "compare-", "nest-",
-                                        "node-", "ring-")) or \
+                                        "node-", "ring-", "code")) or \
                    b["tag"] in ("full-title", "caption", "ledger-index") or \
                    (b["tag"] == "eyebrow" and b["y"] > 300):
                     continue
@@ -140,6 +140,45 @@ def main(path):
                 fail("SHAPE", f"s{n}: 선 두께 {min(sh['w'], sh['h'])} — 1pt 안팎이어야 한다")
     else:
         fail("PLATE", "매니페스트가 없어 사각형·그리드 검사를 못 했다")
+
+    # --- '제작 원칙' §5-2 — 여백 침범 · 도형 겹침 · 화면 밖 -------------
+    if man:
+        # 표는 자체 pad_x 를 쓴다. 설정된 안여백 중 가장 작은 값을 하한으로 본다.
+        PAD = min(spec["shapes"].get("panel_pad_x", 24) * 0.55,
+                  spec.get("table", {}).get("pad_x", 24),
+                  spec["shapes"].get("card_pad", 13))
+        for n, boxes in sorted(by_slide.items()):
+            for sh in man.get("shapes", []):
+                if sh["slide"] != n or sh.get("kind") not in ("panel", "plate"):
+                    continue
+                for b in boxes:
+                    inside = (sh["x"] - 2 <= b["x"] and b["y"] >= sh["y"] - 2
+                              and b["x"] + b["w"] <= sh["x"] + sh["w"] + 2
+                              and b["y"] <= sh["y"] + sh["h"] + 2)
+                    # 가운데 정렬 글은 도형 폭 전체를 차지하는 게 정상이다
+                    if not inside or b.get("align") == "center":
+                        continue
+                    if b["x"] - sh["x"] < PAD or (sh["x"] + sh["w"]) - (b["x"] + b["w"]) < -0.5:
+                        fail("MARGIN", f"s{n}: '{b['tag']}' 가 패널 안쪽 여백을 침범한다 "
+                                       f"(좌 {b['x'] - sh['x']:.0f}pt < {PAD:.0f}pt)")
+        for n in sorted(by_slide):
+            shs = [x for x in man.get("shapes", []) if x["slide"] == n
+                   and x.get("kind") in ("panel", "plate", "chip")]
+            for a in range(len(shs)):
+                for b_ in range(a + 1, len(shs)):
+                    p_, q = shs[a], shs[b_]
+                    ox = min(p_["x"]+p_["w"], q["x"]+q["w"]) - max(p_["x"], q["x"])
+                    oy = min(p_["y"]+p_["h"], q["y"]+q["h"]) - max(p_["y"], q["y"])
+                    contained = (p_["x"] <= q["x"] and q["x"]+q["w"] <= p_["x"]+p_["w"]
+                                 and p_["y"] <= q["y"] and q["y"]+q["h"] <= p_["y"]+p_["h"]) or \
+                                (q["x"] <= p_["x"] and p_["x"]+p_["w"] <= q["x"]+q["w"]
+                                 and q["y"] <= p_["y"] and p_["y"]+p_["h"] <= q["y"]+q["h"])
+                    if ox > 2 and oy > 2 and not contained:
+                        fail("OVERLAP", f"s{n}: 도형 두 개가 {ox:.0f}x{oy:.0f}pt 겹친다")
+        for sh in man.get("shapes", []):
+            if sh["x"] < -0.5 or sh["y"] < -0.5 or \
+               sh["x"] + sh["w"] > 960.5 or sh["y"] + sh["h"] > 540.5:
+                fail("OFFSLIDE", f"s{sh['slide']}: '{sh.get('kind')}' 가 화면을 벗어난다")
 
     print(f"ppt-deck lint_deck — {os.path.basename(path)} (슬라이드 {len(slides)}장)")
     for f in FAIL:

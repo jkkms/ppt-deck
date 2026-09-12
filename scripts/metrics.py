@@ -11,7 +11,9 @@ import json, os, sys, glob
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(HERE, "..", "references", "font-metrics.json")
-FONT_DIRS = [os.path.expanduser("~/Library/Fonts"), "/Library/Fonts", "/System/Library/Fonts"]
+FONT_DIRS = [os.path.expanduser("~/Library/Fonts"), "/Library/Fonts",
+             "/System/Library/Fonts",
+             "/Applications/Microsoft Word.app/Contents/Resources/DFonts"]
 
 # deck-spec.yaml의 fonts 값 → 파일명 조각
 WANT = {
@@ -19,6 +21,7 @@ WANT = {
     "Pretendard SemiBold": "Pretendard-SemiBold",
     "Pretendard Medium": "Pretendard-Medium",
     "Pretendard": "Pretendard-Regular",
+    "Consolas": "Consola",          # Office 동봉. 코드 블록 고정폭
 }
 
 

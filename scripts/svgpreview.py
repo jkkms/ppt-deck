@@ -155,6 +155,14 @@ def raster(man, idx, scale=1.0):
 
     def draw(x, y, text, name, size, color, trk=0.0):
         f = F(name, size)
+        if name == "Consolas" and any("\uac00" <= c <= "\ud7a3" for c in text):
+            # 고정폭에는 한글이 없다 — 실제 렌더와 같게 한글만 본문 글꼴로
+            cx = x * scale
+            for ch in text:
+                fc = F("Pretendard", size) if "\uac00" <= ch <= "\ud7a3" else f
+                dr.text((cx, y * scale), ch, font=fc, fill="#" + color, anchor="ls")
+                cx += dr.textlength(ch, font=fc) + trk * scale
+            return
         if not trk:
             dr.text((x * scale, y * scale), text, font=f, fill="#" + color, anchor="ls")
             return
