@@ -236,8 +236,8 @@ def cards(d: Deck, s, m, sl):
         y = top0 + sum(rowh[:r]) + RGAP * r
         if thumb:
             if it.get("image"):
-                d.picture(s, it["image"], x, y, w, thumb, "cover", tag="card-img",
-                          focus=it.get("focus", "top"))
+                d.picture(s, it["image"], x, y, w, thumb, it.get("fit", "cover"),
+                          tag="card-img", focus=it.get("focus", "top"))
             y += thumb + 16
         nh, th, bh, _ = blocks[k]
         if nh:
@@ -299,20 +299,29 @@ def image_split(d: Deck, s, m, sl):
 
 def image_full(d: Deck, s, m, sl):
     """위는 전출혈 이미지, 아래는 바탕색 판에 제목·캡션.
-    사진 위에 글자를 얹지 않는다 — 어떤 사진이 올지 모르는 채로 가독성을 도박하지 않는다."""
+    사진 위에 글자를 얹지 않는다 — 어떤 사진이 올지 모르는 채로 가독성을 도박하지 않는다.
+    판 높이는 글 분량에 맞춰 늘린다. 고정 높이로 두면 두 줄짜리 캡션이 화면 밖으로 나간다."""
     g = d.g
-    PLATE = 168
-    d.picture(s, sl["image"], 0, 0, g.width, g.height - PLATE, sl.get("fit", "cover"),
+    SP, FN = d.spec["styles"], d.spec["fonts"]
+    tw = g.w(9)
+    th = est_height([sl.get("title", "")], SP["h1"]["size"], SP["h1"]["leading"], tw,
+                    font=FN[SP["h1"]["font"]]) if sl.get("title") else 0
+    ch = est_height([sl["caption"]], SP["small"]["size"], SP["small"]["leading"], tw,
+                    font=FN[SP["small"]["font"]]) if sl.get("caption") else 0
+    lh = 26 if sl.get("label") else 0
+    plate = 30 + lh + th + (12 if ch else 0) + ch + 32
+
+    d.picture(s, sl["image"], 0, 0, g.width, g.height - plate, sl.get("fit", "cover"),
               focus=sl.get("focus", "center"))
-    y = g.height - PLATE + 34
-    if sl.get("label"):
-        d.text(s, "label", g.margin_x, y - 26, g.w(8), 16, sl["label"], color="accent")
-    SP = d.spec["styles"]["h1"]
-    th = est_height([sl.get("title", "")], SP["size"], SP["leading"], g.w(8),
-                    font=d.spec["fonts"][SP["font"]])
-    d.text(s, "h1", g.margin_x, y, g.w(8), th + 6, sl.get("title", ""), tag="full-title")
-    if sl.get("caption"):
-        d.text(s, "small", g.margin_x, y + th + 12, g.w(9), 40, sl["caption"], color="muted")
+    y = g.height - plate + 30
+    if lh:
+        d.text(s, "label", g.margin_x, y, tw, 16, sl["label"], color="accent")
+        y += lh
+    if th:
+        d.text(s, "h1", g.margin_x, y, tw, th + 6, sl["title"], tag="full-title")
+        y += th + 12
+    if ch:
+        d.text(s, "small", g.margin_x, y, tw, ch + 6, sl["caption"], color="muted")
 
 
 def closing(d: Deck, s, m, sl):
