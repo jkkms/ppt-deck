@@ -269,3 +269,9 @@ slides:
       - {label: "회신 기한", value: "3월 27일 금요일까지"}
       - {label: "문서", value: "내부 위키 · 재고예측 2026"}
     title: "다음 단계는"
+
+  # closing · 질문 시간 (qa-closing) — 알약 · 큰 제목 · 맺음말 한 줄. 그림은 넣을 거리가 있을 때만 image:
+  - layout: closing
+    label: "질문 시간"
+    title: "무엇이든 물어보세요"
+    line: "오늘 함께해 주어 고맙습니다."

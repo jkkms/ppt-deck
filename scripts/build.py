@@ -12,7 +12,7 @@ import argparse, os, sys
 import yaml
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from deckkit import (Deck, load_spec, col_x, span_w, content_r,
-                     block_h, block_w, line_count, resolve_y)
+                     block_h, block_w, line_count, resolve_y, contrast)
 
 WARN: list[str] = []
 
@@ -132,8 +132,17 @@ def cover(d, s, m, sl):
 
 
 def closing(d, s, m, sl):
-    """반전 필드. 표지와 다른 축 — 정보 원장이 우측에 서고 제목은 1줄이다."""
+    """반전 필드. 두 갈래다.
+
+    ledger 가 없으면 질문 시간(Q&A) 장 — 사용자 원칙 「마무리(Q&A) 슬라이드는 단순하게」.
+      알약 라벨 · 큰 제목 · 맺음말 한 줄. 부제·예시 질문 카드는 없다. 글 덩어리는 왼쪽, 세로 가운데.
+      그림은 **선택**이다 — 넣을 거리가 있을 때만 오른쪽에 크게 두고 뒤에 조명 원 하나.
+      없다고 억지로 채우지 않는다 (사용자 지시, 2026-09-13). 실측 2차시 39쪽.
+    ledger 가 있으면 정보 원장이 우측에 서고 제목은 1줄이다.
+    """
     g = L(d)
+    if not sl.get("ledger"):
+        return _closing_qa(d, s, g, sl)
     if sl.get("eyebrow"):
         d.text(s, "micro", col_x(1), g.eyebrow_y, span_w(5), 15, sl["eyebrow"],
                color="accent", tag="eyebrow")
@@ -149,6 +158,46 @@ def closing(d, s, m, sl):
     d.text(s, "cover", col_x(1), resolve_y(th, d.spec, top=g.top), span_w(7), th,
            title, tag="title")
 
+
+
+def _closing_qa(d, s, g, sl):
+    SH = d.spec["shapes"]
+    mid = d.spec["canvas"]["height_pt"] / 2
+    # 오른쪽 — 캐릭터와 조명 원. 둘은 중심을 같이 쓰고, 그림 오른쪽 끝이 여백선이다
+    if sl.get("image"):
+        iw, ih = SH["qa_img_w"], SH["qa_img_h"]
+        ix = content_r() - iw
+        d.glow(s, ix + iw / 2, mid, SH["qa_glow_d"], SH["qa_glow_contrast"])
+        d.picture(s, sl["image"], ix, mid - ih / 2, iw, ih, sl.get("fit", "contain"),
+                  tag="qa-image")
+    else:
+        ix = content_r() + SH["qa_text_gap"]   # 그림이 없으면 글이 오른쪽 여백선까지 쓴다
+    # 왼쪽 — 알약 + 제목이 한 덩어리로 세로 가운데
+    tw = ix - col_x(1) - SH["qa_text_gap"]
+    title = _t(sl, "title") or "무엇이든 물어보세요"
+    th = g.bh(title, tw, "cover")
+    label = sl.get("label") or ""
+    st_s = d.spec["styles"]["small"]
+    ph = SH["eyebrow_chip_h"] if label else 0
+    gap = SH["qa_label_gap"] if label else 0
+    top = round(mid - (ph + gap + th) / 2)
+    if label:
+        pw = block_w(label, st_s, d.spec["fonts"]["body"]) + 2 * SH["qa_label_pad_x"]
+        # 알약 글자색은 대비로 고른다 — 반전 필드에서 ground 는 어둡고 accent 도 어두울 수 있다
+        tc = max(("ground", "figure"), key=lambda k: contrast(d.c(k), d.c("accent")))
+        d.chip(s, col_x(1), top, pw, ph, label, color="accent", text_color=tc,
+               style="small", radius=ph / 2)
+    d.text(s, "cover", col_x(1), top + ph + gap, tw, th, title, tag="title")
+    # 맺음말 한 줄은 본문 바닥선에 — 덩어리에 붙이지 않는다
+    if sl.get("line"):
+        lh = g.bh(sl["line"], span_w(8), "body")
+        bottom = (d.spec.get("rhythm_y") or {}).get(
+            "content_bottom", d.spec["canvas"]["height_pt"] - d.spec["grid"]["margin_bottom"])
+        d.text(s, "body", col_x(1), bottom - lh, span_w(8), lh,
+               sl["line"], color="muted", tag="qa-line")
+    for k in ("subtitle", "lead", "questions", "items"):
+        if sl.get(k):
+            warn(f"closing(Q&A): '{k}' 는 넣지 않는다 — 사용자가 직접 지운 요소다. 무시함")
 
 def section(d, s, m, sl):
     """반전 필드. 큰 번호가 아니라 눈썹 + 제목의 위치만으로 장을 가른다."""
@@ -348,42 +397,58 @@ def quote(d, s, m, sl):
 
 
 def chain(d, s, m, sl):
-    """전제 패널 + 꼬리를 무는 질문. 사용자 덱 12쪽의 구조를 좌표까지 그대로 옮긴 것이다.
-    패널 = 묶음, 배지 = 행의 시작점, 연결선 = 파고드는 관계. 셋 다 장식이 아니다."""
+    """전제 패널 + 꼬리를 무는 질문. 소집면담00 12쪽.
+
+    원본과 나란히 그려 보고 다시 옮겼다 (2026-09-13, 사용자: "원본이 훨씬 좋아").
+      - 전제와 질문 글은 15.5pt 굵게 — 13pt 로는 사슬이 힘없이 흩어졌다
+      - 배지 안은 글리프가 아니라 선 아이콘 그림. 전제는 내용에 맞는 아이콘(panel_icon)
+      - 연결선은 accent_pale 가는 선 (원본 E1E7E1 과 같은 값). 진한 선은 도식처럼 튄다
+      - 연결선은 늘 같은 길이로 다음 배지 윗변에서 끝난다
+      - 질문 배지는 왼쪽 끝을 계단으로 맞춘다 (첫 배지 왼쪽 끝 = 전제 배지 왼쪽 끝)
+      - 제목 아래 설명은 11.5pt — 사슬 글보다 작아야 위계가 선다
+    """
     g = L(d)
     SH = d.spec["shapes"]
     g.head(s, sl, span=12)
     y = g.top
     if sl.get("lead"):
-        lh = g.bh(sl["lead"], span_w(10), "lead")
-        d.text(s, "lead", col_x(1), y, span_w(10), lh, sl["lead"], color="muted", tag="lead")
+        lh = g.bh(sl["lead"], span_w(10), "small")
+        d.text(s, "small", col_x(1), y, span_w(10), lh, sl["lead"], color="muted", tag="lead")
     y = max(y + 30, g.block)
 
-    bx = col_x(1) + 40                      # 배지 중심 x (실측 98)
+    D, dsub = SH["badge_d"], SH["badge_d_sub"]
+    bl = col_x(1) + SH["chain_badge_dx"]      # 배지 왼쪽 끝 (실측 82.1)
+    ist = d.spec["styles"]["lead"]
+    row_h = ist["size"] * ist["leading"]
     if sl.get("panel"):
         ph = SH["panel_h"]
         d.panel(s, col_x(1), y, span_w(12), ph, radius=SH["panel_radius"])
-        d.badge(s, bx, y + ph / 2, SH["badge_d"], "accent",
-                glyph=sl.get("panel_mark", "\u21b3"), glyph_color="ground", style="h2")
-        d.text(s, "body", col_x(1) + 73, y + ph / 2 - 11, span_w(12) - 90, 22,
-               sl["panel"], font_key="head", tag="panel-text")
+        d.badge(s, bl + D / 2, y + ph / 2, D, "accent")
+        d.icon(s, sl.get("panel_icon", "quote"), bl + D / 2, y + ph / 2,
+               D * SH["icon_ratio"], "ground")
+        tx = bl + SH["chain_panel_text_dx"]
+        d.text(s, "lead", tx, y + ph / 2 - row_h / 2, col_x(1) + span_w(12) - tx - 16, row_h,
+               sl["panel"], font_key="head", anchor="middle", tag="panel-text")
         y += ph
 
     steps = sl.get("steps") or []
-    dsub, ind, step = SH["badge_d_sub"], SH["chain_indent"], SH["chain_step"]
+    ind, step = SH["chain_indent"], SH["chain_step"]
     if len(steps) > 4:
         warn(f"slide {d._slide_i}: chain 단계 {len(steps)}개 — 4개까지만 들여쓰기가 화면에 든다")
     for i, tx in enumerate(steps[:4]):
-        cx = bx + i * ind
-        cy = y + 39 + i * step
-        d.connector(s, cx, (y + 4.6) if i == 0 else (cy - step + dsub / 2 + 5),
-                    (cy - dsub / 2) - ((y + 4.6) if i == 0 else (cy - step + dsub / 2 + 5)))
-        d.badge(s, cx, cy, dsub, "accent_soft", glyph="\u21b3",
-                glyph_color="ground", style="micro")
-        d.text(s, "small", cx + 17, cy - 9, 22, 18, str(i + 1),
-               color="accent", font_key="head", tag="chain-num")
-        d.text(s, "body", cx + 43, cy - 11, content_r() - (cx + 43), 22, str(tx),
-               font_key="head", tag="chain-text")
+        left = bl + i * ind
+        top = y + SH["chain_first_gap"] + i * step
+        cx, cy = left + dsub / 2, top + dsub / 2
+        line_h = SH["chain_line_h"]
+        if i or sl.get("panel"):              # 이을 앞 행이 있을 때만
+            d.connector(s, cx, top - line_h, line_h, w=SH["chain_line_w"], color="accent_pale")
+        d.badge(s, cx, cy, dsub, "accent_soft")
+        d.icon(s, "arrow", cx, cy, dsub * SH["icon_ratio"], "ground")
+        d.text(s, "small", left + SH["chain_num_dx"], cy - 9, 22, 18, str(i + 1),
+               color="accent_soft", font_key="head", anchor="middle", tag="chain-num")
+        x2 = left + SH["chain_text_dx"]
+        d.text(s, "lead", x2, cy - row_h / 2, content_r() - x2, row_h, str(tx),
+               font_key="head", anchor="middle", tag="chain-text")
 
 
 def panel_list(d, s, m, sl):
@@ -763,6 +828,12 @@ def cellgrid(d, s, m, sl):
 
     표를 '보여 주는' table 과 다르다. 이건 구조를 '설명하는' 그림이라
     머리 칸만 진한 톤으로 띄우고 나머지는 tint 로 둔다.
+
+    카드 안 배치는 사용자 원칙 §4-2 를 따른다 (사용자가 직접 고쳐 보여 준 배치):
+      - 제목·설명은 왼쪽 정렬, 둘을 바짝 붙여 한 덩어리
+      - 글 덩어리 위 여백은 표 아래 여백보다 조금 더 (info_pad_top_extra) — 의도다
+      - 표는 내용 폭으로 두고 카드 가로 가운데. 글과 같은 기준선에 억지로 맞추지 않는다
+      - 나란한 카드는 같은 세로 배치 — 가장 긴 제목·설명·표에 맞춘다
     """
     g = L(d)
     SH = d.spec["shapes"]
@@ -773,34 +844,61 @@ def cellgrid(d, s, m, sl):
     n = len(blocks)
     pw = (span_w(12) - 20) / n if n > 1 else span_w(12)
     ch, gp = SH["cell_h"], SH["cell_gap"]
+    pad_x = SH["panel_pad_x"]
+    tw_max = pw - 2 * pad_x
+    st_s = d.spec["styles"]["small"]
+    fn_s = d.spec["fonts"][st_s["font"]]
+
+    # 형제 카드가 같은 배치를 쓰도록 세로 치수는 전부 최댓값으로 맞춘다
+    title_h = max(g.bh(b.get("title", ""), tw_max, "h2") for b in blocks)
+    desc_h = max((g.bh(b["desc"], tw_max, "small") for b in blocks if b.get("desc")),
+                 default=0)
     maxrows = max(len(b.get("rows") or []) for b in blocks)
-    ph = 44 + 26 + 24 + (maxrows + 1) * (ch + gp) + 24
+    grid_h = (maxrows + 1) * ch + maxrows * gp
+    pad_b = SH["info_pad_bottom"]
+    pad_t = pad_b + SH["info_pad_top_extra"]
+    desc_dy = title_h + SH["info_title_gap"]
+    table_dy = desc_dy + (desc_h + SH["info_table_gap"] if desc_h else SH["info_table_gap"])
+    ph = pad_t + table_dy + grid_h + pad_b
+
     y = g.block
     for k, b in enumerate(blocks):
         x = col_x(1) + k * (pw + 20)
         d.panel(s, x, y, pw, ph, radius=SH["panel_radius"])
-        d.text(s, "h2", x + 30, y + 16, pw - 60, 30, b.get("title", ""), tag="cg-title")
+        d.text(s, "h2", x + pad_x, y + pad_t, tw_max, title_h, b.get("title", ""),
+               tag="cg-title")
         if b.get("desc"):
-            d.text(s, "small", x + 30, y + 54, pw - 60, 20, b["desc"],
+            d.text(s, "small", x + pad_x, y + pad_t + desc_dy, tw_max, desc_h, b["desc"],
                    color="muted", tag="cg-desc")
         heads = b.get("headers") or []
         rows = b.get("rows") or []
         ncol = max(len(heads), max((len(r) for r in rows), default=0))
         if not ncol:
             continue
-        inner = pw - 64
-        widths = b.get("widths") or [1] * ncol
-        tot = sum(widths)
-        ws = [inner * w / tot - gp * (ncol - 1) / ncol for w in widths]
-        gy = y + 100
+        widths = (b.get("widths") or [1] * ncol)[:ncol]
+        widths += [1] * (ncol - len(widths))
+        # 열 폭 = 비율 x 단위, 단 가장 긴 칸 글자는 들어가야 한다
+        ws = []
+        for j in range(ncol):
+            cells = [str(heads[j])] if j < len(heads) else []
+            cells += [str(r[j]) for r in rows if j < len(r)]
+            need = max((block_w(c, st_s, fn_s) for c in cells), default=0) + 20
+            ws.append(round(max(widths[j] * SH["info_col_unit"], need)))
+        tw = sum(ws) + gp * (ncol - 1)
+        if tw > tw_max:                       # 넘치면 카드 폭 안으로 비례 축소
+            k_ = (tw_max - gp * (ncol - 1)) / sum(ws)
+            ws = [w_ * k_ for w_ in ws]
+            tw = tw_max
+        gx0 = round(x + (pw - tw) / 2)        # 표는 카드 가로 가운데 (정수 pt — 칸 글자 중앙 오차 방지)
+        gy = y + pad_t + table_dy
         for j, hcell in enumerate(heads[:ncol]):
-            gx = x + 32 + sum(ws[:j]) + gp * j
+            gx = gx0 + sum(ws[:j]) + gp * j
             d.chip(s, gx, gy, ws[j], ch, str(hcell), color="accent_mid",
                    text_color="figure", style="small", radius=3)
         for i, row in enumerate(rows):
             gy2 = gy + (i + 1) * (ch + gp)
             for j, cell in enumerate(row[:ncol]):
-                gx = x + 32 + sum(ws[:j]) + gp * j
+                gx = gx0 + sum(ws[:j]) + gp * j
                 d.chip(s, gx, gy2, ws[j], ch, str(cell), color="accent_tint",
                        text_color="figure", style="small", radius=3)
 

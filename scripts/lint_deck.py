@@ -122,17 +122,30 @@ def main(path):
         # node(타임라인 마디) · ring(포함관계 고리)은 활자를 담지 않는다.
         # 축 위의 위치, 고리의 크기 자체가 관계를 나타내므로 장식이 아니다.
         ALLOWED = {"plate", "panel", "badge", "chip", "connector",
-                   "node", "ring", "hero_rule", "table_rule"}
+                   "node", "ring", "hero_rule", "table_rule", "glow"}
+        # glow(그림 뒤 조명)는 그림을 받칠 때만 — 사용자 원칙 「마무리(Q&A) 슬라이드」
         for sh in man.get("shapes", []):
             k, n = sh.get("kind"), sh["slide"]
             if k not in ALLOWED:
                 fail("SHAPE", f"s{n}: 허용되지 않은 도형 '{k}'")
+                continue
+            if k == "glow":
+                imgs = [r for r in man.get("images", []) if r.get("slide") == n]
+                cx, cy = sh["x"] + sh["w"] / 2, sh["y"] + sh["h"] / 2
+                if not any(r["x"] <= cx <= r["x"] + r["w"] and r["y"] <= cy <= r["y"] + r["h"]
+                           for r in imgs):
+                    fail("SHAPE", f"s{n}: 조명 원 뒤에 받칠 그림이 없다 — 장식 원이다")
                 continue
             if k in ("plate", "panel", "badge", "chip"):
                 inside = [b for b in by_slide.get(n, [])
                           if b["x"] >= sh["x"] - 2 and b["y"] >= sh["y"] - 14
                           and b["x"] + b["w"] <= sh["x"] + sh["w"] + 2
                           and b["y"] <= sh["y"] + sh["h"] + 4]
+                # 선 아이콘 그림도 내용물이다 — 사용자 덱의 배지는 글리프 대신 아이콘을 담는다
+                inside += [r for r in man.get("images", [])
+                           if r.get("slide") == n and r.get("tag") == "icon"
+                           and sh["x"] <= r["x"] + r["w"] / 2 <= sh["x"] + sh["w"]
+                           and sh["y"] <= r["y"] + r["h"] / 2 <= sh["y"] + sh["h"]]
                 if not inside and k not in ("panel",):
                     fail("SHAPE", f"s{n}: '{k}' 안에 활자가 없다 — 장식 도형은 만들지 않는다")
                 if min(sh["w"], sh["h"]) < spec["plates"]["plate_min_side"] and k == "plate":

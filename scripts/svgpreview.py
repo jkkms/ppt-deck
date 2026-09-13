@@ -135,12 +135,6 @@ def _fontfile(name):
     return _m._find(stem)
 
 
-def _fontfile(name):
-    import metrics as _m
-    stem = _m.WANT.get(name, "Pretendard-Regular")
-    return _m._find(stem)
-
-
 def raster(man, idx, scale=1.0):
     """SVG와 같은 좌표계를 PIL로 직접 그린다. 실제 Pretendard TTF를 써서
     글리프·줄바꿈·자간이 PowerPoint와 같은 메트릭으로 나온다."""
@@ -185,14 +179,15 @@ def raster(man, idx, scale=1.0):
         if kindtag == "img":
             if not os.path.exists(z["src"]):
                 continue
-            ph = Image.open(z["src"]).convert("RGB").resize(
+            ph = Image.open(z["src"]).convert("RGBA").resize(
                 (max(1, round(z["w"] * scale)), max(1, round(z["h"] * scale))), Image.LANCZOS)
-            img.paste(ph, (round(z["x"] * scale), round(z["y"] * scale)))
+            # 투명 PNG(캐릭터 등)는 알파를 살려 얹는다 — RGB 로 바꾸면 검은 상자가 된다
+            img.paste(ph, (round(z["x"] * scale), round(z["y"] * scale)), ph)
             continue
         box = [z["x"] * scale, z["y"] * scale,
                (z["x"] + z["w"]) * scale, (z["y"] + z["h"]) * scale]
         k = z.get("kind")
-        if k in ("badge", "node", "ring"):
+        if k in ("badge", "node", "ring", "glow"):
             dr.ellipse(box, fill="#" + z["color"])
         elif k in ("panel", "chip"):
             dr.rounded_rectangle(box, radius=z.get("radius", 5) * scale,

@@ -144,6 +144,26 @@ shapes:
   cell_gap: 4
   chipcell: 43
   chipcell_gap: 4.3
+  info_pad_bottom: 24
+  info_pad_top_extra: 4
+  info_title_gap: 4
+  info_table_gap: 16
+  info_col_unit: 56
+  qa_img_w: 382
+  qa_img_h: 238
+  qa_glow_d: 338
+  qa_glow_contrast: 1.30
+  qa_label_pad_x: 30
+  qa_label_gap: 20
+  qa_text_gap: 24
+  chain_badge_dx: 24.5
+  chain_panel_text_dx: 49
+  chain_first_gap: 26
+  chain_line_h: 21.6
+  chain_line_w: 1.25
+  chain_num_dx: 33
+  chain_text_dx: 59
+  icon_ratio: 0.46
   gallery_gap: 20
   gallery_img_h: 121
   kind_chip_w: 125

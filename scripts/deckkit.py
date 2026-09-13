@@ -498,6 +498,85 @@ class Deck:
                                 color=self.c(color), seq=self._seq, kind="ring"))
         return sh
 
+    ICONS = ("arrow", "pencil", "quote", "question", "check")
+
+    def icon(self, s, name, cx, cy, size, color="ground"):
+        """배지 안 선 아이콘. 사용자 덱은 글리프(↳)가 아니라 선 아이콘 그림을 쓴다 —
+        글리프는 폰트마다 획 굵기·중심이 달라 배지 안에서 뜬다 (소집면담00 12쪽 대조).
+        원본 아이콘 실측 — 잉크는 캔버스의 75%, 획 굵기는 잉크 폭의 11.5%, 끝은 둥글게.
+        잉크 bbox 를 캔버스 가운데로 옮겨 광학 중앙을 맞춘다.
+        """
+        from PIL import Image, ImageDraw
+        if name not in self.ICONS:
+            raise ValueError(f"아이콘 '{name}' 없음 — {self.ICONS}")
+        R = 400
+        im = Image.new("RGBA", (R, R), (0, 0, 0, 0))
+        dr = ImageDraw.Draw(im)
+        rgb = tuple(int(self.c(color)[i:i + 2], 16) for i in (0, 2, 4)) + (255,)
+        lw = int(R * 0.075)
+
+        def ln(pts):
+            dr.line(pts, fill=rgb, width=lw, joint="curve")
+            for p in (pts[0], pts[-1]):
+                dr.ellipse([p[0] - lw / 2, p[1] - lw / 2, p[0] + lw / 2, p[1] + lw / 2], fill=rgb)
+
+        u = R / 10
+        if name == "arrow":                      # ↳ 아래로 내려와 오른쪽으로
+            ln([(3 * u, 1.5 * u), (3 * u, 6 * u), (8 * u, 6 * u)])
+            ln([(6 * u, 4 * u), (8 * u, 6 * u), (6 * u, 8 * u)])
+        elif name == "pencil":
+            ln([(2 * u, 8 * u), (2.4 * u, 6.2 * u), (6.8 * u, 1.8 * u), (8.2 * u, 3.2 * u),
+                (3.8 * u, 7.6 * u), (2 * u, 8 * u)])
+            ln([(5.6 * u, 3 * u), (7 * u, 4.4 * u)])
+            ln([(4.6 * u, 8.2 * u), (8.4 * u, 8.2 * u)])
+        elif name == "quote":
+            for x0 in (2.2 * u, 5.8 * u):
+                dr.ellipse([x0, 3 * u, x0 + 2.2 * u, 5.2 * u], fill=rgb)
+                ln([(x0 + 2.0 * u, 4.3 * u), (x0 + 1.2 * u, 7.2 * u)])
+        elif name == "question":
+            dr.arc([3 * u, 1.5 * u, 7 * u, 5.5 * u], 180, 90, fill=rgb, width=lw)
+            ln([(5 * u, 5.5 * u), (5 * u, 6.4 * u)])
+            dr.ellipse([5 * u - lw * 0.7, 8.2 * u - lw * 0.7, 5 * u + lw * 0.7, 8.2 * u + lw * 0.7], fill=rgb)
+        elif name == "check":
+            ln([(2 * u, 5.2 * u), (4.2 * u, 7.4 * u), (8 * u, 2.8 * u)])
+        bb = im.getbbox()
+        ink = im.crop(bb)
+        side = int(max(ink.size) / 0.75)
+        sq = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+        sq.paste(ink, ((side - ink.size[0]) // 2, (side - ink.size[1]) // 2))
+        os.makedirs(self._tmpdir, exist_ok=True)
+        tmp = os.path.join(self._tmpdir, f"icon-{name}-{self.c(color)}.png")
+        sq.save(tmp)
+        return self.picture(s, tmp, cx - size / 2, cy - size / 2, size, size, "contain", tag="icon")
+
+    def glow(self, s, cx, cy, d, target=1.28):
+        """그림 뒤 둥근 조명. 사용자 원칙 — Q&A 장 캐릭터 뒤 원 하나로 무게를 준다.
+
+        새 hex 를 들이지 않는다: 바탕을 accent 쪽으로 섞는다. 섞는 비율은 고정값이 아니라
+        바탕과의 대비로 정한다 — 실측 2차시 39쪽 바탕 0E1A2B 위 17304C 가 대비 1.28.
+        고정 비율로는 어두운 accent(forest)에서 원이 사라졌다.
+        accent 로 그 대비가 안 나오면 figure 쪽으로 섞는다. 지름 338 (캐릭터 폭의 0.89배).
+        그림을 받치지 않는 원은 lint_deck 가 장식으로 잡는다.
+        """
+        g = self.c("ground")
+        color = g
+        for toward in (self.c("accent"), self.c("figure")):
+            for i in range(1, 101):
+                cand = mix(g, toward, i / 100)
+                if contrast(cand, g) >= target:
+                    color = cand
+                    break
+            if color != g:
+                break
+        sh = s.shapes.add_shape(MSO_SHAPE.OVAL, Pt(cx - d / 2), Pt(cy - d / 2), Pt(d), Pt(d))
+        sh.fill.solid(); sh.fill.fore_color.rgb = RGBColor.from_string(color)
+        sh.line.fill.background(); sh.shadow.inherit = False
+        sh.text_frame.text = ""
+        self._seq += 1
+        self.shapes.append(dict(slide=self._slide_i, x=cx - d / 2, y=cy - d / 2, w=d, h=d,
+                                color=color, seq=self._seq, kind="glow"))
+        return sh
+
     def connector(self, s, x, y, h, w=1.0, color="accent_soft"):
         """배지와 배지를 잇는 세로선. 관계를 나타내는 선이라 장식선 금지에 걸리지 않는다."""
         return self._rect(s, x - w / 2, y, w, h, color, "connector", True)
