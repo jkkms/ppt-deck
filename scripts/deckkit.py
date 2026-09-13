@@ -600,6 +600,11 @@ class Deck:
             p.line_spacing = 1.0 if exact_center else st["leading"]
             if space_after and i < len(paras) - 1:
                 p.space_after = Pt(space_after)
+            if str(ptext) == "":
+                # 빈 줄은 빈 문단으로만 둔다. 빈 run 은 PowerPoint 가 저장할 때 지워
+                # 사용자 편집본과 도형 단위 대조가 어긋난다
+                _end_para(p, font, st["size"], self.c(color), ea=ea)
+                continue
             r = p.add_run(); r.text = str(ptext)
             _apply_font(r, font, st["size"],
                         self.c("accent") if i in accent_paras else self.c(color),

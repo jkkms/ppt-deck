@@ -138,7 +138,7 @@ shapes:
   connector_w: 1
   divider_w: 1
   code_pad_x: 26
-  code_pad_y: 22
+  code_pad_y: 35
   code_comment_col: 36
   cell_h: 28
   cell_gap: 4
@@ -156,8 +156,13 @@ shapes:
   stair_w_min: 0.4
   stair_w_max: 0.73
   stair_badge_d: 35
-  stair_pad_x: 16
-  stair_text_x: 58
+  stair_pad_x: 13
+  badge_text_gap: 15
+  compare_pad_x: 16
+  nest_pad_x: 16
+  stair_text_pad_r: 15
+  ring_label_dy: 9
+  code_caption_gap: 34
   compare_h: 212
   compare_gap: 25
 

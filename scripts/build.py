@@ -541,11 +541,12 @@ def stair(d, s, m, sl):
                 glyph_color="figure" if last else "ground", style="lead")
         tc = "ground" if last else "figure"
         bc = "ground" if last else "muted"
-        tw = w - SH["stair_text_x"] - 20
-        d.text(s, "lead", col_x(1) + SH["stair_text_x"], y + 11, tw, 22,
+        tx_off = SH["stair_pad_x"] + SH["stair_badge_d"] + SH["badge_text_gap"]
+        tw = w - tx_off - SH["stair_text_pad_r"]
+        d.text(s, "lead", col_x(1) + tx_off, y + 11, tw, 22,
                it.get("title", ""), color=tc, font_key="head", tag="stair-title")
         if it.get("body"):
-            d.text(s, "small", col_x(1) + SH["stair_text_x"], y + 38, tw, 18,
+            d.text(s, "small", col_x(1) + tx_off, y + 38, tw, 18,
                    it["body"], color=bc, tag="stair-body")
         if lab_x and it.get("label"):
             d.text(s, "h2", lab_x, y + ph / 2 - 14,
@@ -573,12 +574,13 @@ def compare(d, s, m, sl):
         good = bool(it.get("good"))
         d.panel(s, x, y, pw, ph, color="figure" if good else "accent_tint",
                 radius=SH["panel_radius"])
-        d.badge(s, x + SH["stair_pad_x"] + SH["stair_badge_d"] / 2, y + ph / 2,
+        d.badge(s, x + SH["compare_pad_x"] + SH["stair_badge_d"] / 2, y + ph / 2,
                 SH["stair_badge_d"], "accent" if good else "accent_soft",
                 glyph=it.get("mark", "\u25cb" if good else "\u00d7"),
                 glyph_color="figure" if good else "ground", style="lead")
-        tx = x + SH["stair_text_x"]
-        tw = pw - SH["stair_text_x"] - 24
+        tx_off = SH["compare_pad_x"] + SH["stair_badge_d"] + SH["badge_text_gap"]
+        tx = x + tx_off
+        tw = pw - tx_off - 24
         tc = "ground" if good else "figure"
         bc = "ground" if good else "ink2"
         th = g.bh(it.get("title", ""), tw, "h2")
@@ -612,7 +614,7 @@ def nest(d, s, m, sl):
         y = oy + k * 42
         d.oval(s, x, y, w, h, color=tones[k])
         # 가장 안쪽 고리는 라벨을 세로 중앙에 — 바깥 고리는 위쪽에 얹어 겹침을 피한다
-        ly = y + (h - 26) / 2 if k == 2 else y + 20
+        ly = y + (h - 26) / 2 if k == 2 else y + SH["ring_label_dy"]
         d.text(s, "lead", x, ly, w, 26, str(rings[k].get("name", "")),
                align="center", color="ground" if k == 2 else "figure", tag="ring-label")
 
@@ -624,10 +626,10 @@ def nest(d, s, m, sl):
     for k, r in enumerate(rings):
         y = pyy + k * (phh + 9)
         d.panel(s, rx, y, rw, phh, color="accent_tint", radius=SH["panel_radius"])
-        d.text(s, "h2", rx + SH["stair_pad_x"], y + 8, rw - 60, 26,
+        d.text(s, "h2", rx + SH["nest_pad_x"], y + 8, rw - 60, 26,
                str(r.get("name", "")), tag="nest-title")
         if r.get("body"):
-            d.text(s, "small", rx + SH["stair_pad_x"], y + 40, rw - 60, 34,
+            d.text(s, "small", rx + SH["nest_pad_x"], y + 40, rw - 60, 34,
                    r["body"], color="ink2", tag="nest-body")
     if sl.get("conclusion"):
         cy = pyy + 3 * (phh + 9) + 12
@@ -663,7 +665,10 @@ def code(d, s, m, sl):
     y = g.block
 
     raw = [str(l) for l in (sl.get("code") or [])]
-    col = sl.get("comment_col", SH["code_comment_col"])
+    # 주석 칸은 가장 긴 코드 줄에 맞춘다. 고정 칸보다 긴 줄이 있으면 그 줄만 어긋난다
+    longest = max((dw(l.split("#", 1)[0].rstrip()) for l in raw
+                   if "#" in l and not l.lstrip().startswith("#")), default=0)
+    col = sl.get("comment_col", max(SH["code_comment_col"], longest + 3))
     lines = []
     for l in raw:
         if "#" in l and not l.lstrip().startswith("#"):
@@ -684,12 +689,12 @@ def code(d, s, m, sl):
     ch = len(lines) * st["size"] * st["leading"] + SH["code_pad_y"] * 2
     d.panel(s, col_x(1), y, pw, ch, color="figure", radius=SH["panel_radius"])
     d.text(s, "code", col_x(1) + SH["code_pad_x"], y + SH["code_pad_y"], inner,
-           ch - SH["code_pad_y"] * 2, lines, color="ground",
+           ch - SH["code_pad_y"] * 2, lines, color="ground", anchor="middle",
            accent_paras=tuple(i for i, l in enumerate(lines) if l.lstrip().startswith("#")),
            tag="code")
     if sl.get("caption"):
-        d.text(s, "small", col_x(1), y + ch + 14, span_w(9), 20, sl["caption"],
-               color="muted", tag="caption")
+        d.text(s, "small", col_x(1), y + ch + SH["code_caption_gap"], span_w(9), 20,
+               sl["caption"], color="muted", tag="caption")
 
 
 def code_explain(d, s, m, sl):
@@ -705,7 +710,10 @@ def code_explain(d, s, m, sl):
     cx, ex = col_x(1), col_x(8)
 
     raw = [str(l) for l in (sl.get("code") or [])]
-    col = sl.get("comment_col", SH["code_comment_col"])
+    # 주석 칸은 가장 긴 코드 줄에 맞춘다. 고정 칸보다 긴 줄이 있으면 그 줄만 어긋난다
+    longest = max((dw(l.split("#", 1)[0].rstrip()) for l in raw
+                   if "#" in l and not l.lstrip().startswith("#")), default=0)
+    col = sl.get("comment_col", max(SH["code_comment_col"], longest + 3))
     lines = []
     for l in raw:
         if "#" in l and not l.lstrip().startswith("#"):
