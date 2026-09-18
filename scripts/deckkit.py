@@ -426,7 +426,7 @@ class Deck:
                                 color=self.c(color), kind=kind, seq=self._seq))
         return sh
 
-    def panel(self, s, x, y, w, h, color="accent_tint", radius=5.0):
+    def panel(self, s, x, y, w, h, color="accent_tint", radius=11.5):
         """살짝 둥근 채움 패널. 실측 — 반경 5pt, 채움은 accent 를 ground 쪽으로 0.94 섞은 톤.
         장식이 아니라 한 덩어리를 묶는 그릇이므로 반드시 안에 활자가 들어간다."""
         sh = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Pt(x), Pt(y), Pt(w), Pt(h))
@@ -443,7 +443,7 @@ class Deck:
         return sh
 
     def chip(self, s, x, y, w, h, text="", color="accent", text_color="ground",
-             style="small", radius=4.0):
+             style="small", radius=11.5):
         """번호 칩 / 눈썹 칩. 실측 47.5x23 (번호) · 147.6x30 (눈썹), accent 채움."""
         sh = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Pt(x), Pt(y), Pt(w), Pt(h))
         try:

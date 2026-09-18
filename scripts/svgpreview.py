@@ -190,7 +190,7 @@ def raster(man, idx, scale=1.0):
         if k in ("badge", "node", "ring", "glow"):
             dr.ellipse(box, fill="#" + z["color"])
         elif k in ("panel", "chip"):
-            dr.rounded_rectangle(box, radius=z.get("radius", 5) * scale,
+            dr.rounded_rectangle(box, radius=z.get("radius", 11.5) * scale,
                                  fill="#" + z["color"])
         else:
             dr.rectangle(box, fill="#" + z["color"])

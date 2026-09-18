@@ -68,6 +68,10 @@ AI로 만든 PPT는 내용과 무관하게 알아봅니다. 원인은 대부분 
 <td><img src="docs/gallery.png" alt="gallery"><br><code>gallery</code> · 같은 숫자를 여러 방식으로</td>
 </tr>
 <tr>
+<td><img src="docs/closing-qa.png" alt="closing (질문 시간)"><br><code>closing</code> · 마무리 질문 장. 알약 라벨 · 큰 제목 · 맺음말 한 줄, 그림은 선택</td>
+<td><img src="docs/chain.png" alt="chain"><br><code>chain</code> · 전제 하나에서 꼬리를 무는 질문</td>
+</tr>
+<tr>
 <td colspan="2"><img src="docs/table.png" alt="table"><br><code>table</code> · 네이티브 표를 쓰지 않는다. 테마 표스타일의 줄무늬 채움과 전체 테두리가 가장 알아보기 쉬운 템플릿 지문이라 헤어라인으로 직접 그린다</td>
 </tr>
 </table>

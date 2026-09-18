@@ -185,8 +185,9 @@ def _closing_qa(d, s, g, sl):
         pw = block_w(label, st_s, d.spec["fonts"]["body"]) + 2 * SH["qa_label_pad_x"]
         # 알약 글자색은 대비로 고른다 — 반전 필드에서 ground 는 어둡고 accent 도 어두울 수 있다
         tc = max(("ground", "figure"), key=lambda k: contrast(d.c(k), d.c("accent")))
+        # 알약 라벨도 같은 반경이다 — 실측 108x30.2 의 반경이 11.5 로, 진짜 알약(15.1)이 아니었다
         d.chip(s, col_x(1), top, pw, ph, label, color="accent", text_color=tc,
-               style="small", radius=ph / 2)
+               style="small", radius=SH["chip_radius"])
     d.text(s, "cover", col_x(1), top + ph + gap, tw, th, title, tag="title")
     # 맺음말 한 줄은 본문 바닥선에 — 덩어리에 붙이지 않는다
     if sl.get("line"):
@@ -421,7 +422,8 @@ def chain(d, s, m, sl):
     ist = d.spec["styles"]["lead"]
     row_h = ist["size"] * ist["leading"]
     if sl.get("panel"):
-        ph = SH["panel_h"]
+        # 한 줄짜리 전제 띠는 얇게 — 줄 높이 + 여백 (원칙 §4-3). 두꺼운 띠는 글이 뜬다
+        ph = round(row_h + SH["panel_pad_h"])
         d.panel(s, col_x(1), y, span_w(12), ph, radius=SH["panel_radius"])
         d.badge(s, bl + D / 2, y + ph / 2, D, "accent")
         d.icon(s, sl.get("panel_icon", "quote"), bl + D / 2, y + ph / 2,
@@ -894,13 +896,13 @@ def cellgrid(d, s, m, sl):
         for j, hcell in enumerate(heads[:ncol]):
             gx = gx0 + sum(ws[:j]) + gp * j
             d.chip(s, gx, gy, ws[j], ch, str(hcell), color="accent_mid",
-                   text_color="figure", style="small", radius=3)
+                   text_color="figure", style="small", radius=SH["chip_radius"])
         for i, row in enumerate(rows):
             gy2 = gy + (i + 1) * (ch + gp)
             for j, cell in enumerate(row[:ncol]):
                 gx = gx0 + sum(ws[:j]) + gp * j
                 d.chip(s, gx, gy2, ws[j], ch, str(cell), color="accent_tint",
-                       text_color="figure", style="small", radius=3)
+                       text_color="figure", style="small", radius=SH["chip_radius"])
 
 
 def gallery(d, s, m, sl):

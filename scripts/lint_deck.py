@@ -150,6 +150,12 @@ def main(path):
                     fail("SHAPE", f"s{n}: '{k}' 안에 활자가 없다 — 장식 도형은 만들지 않는다")
                 if min(sh["w"], sh["h"]) < spec["plates"]["plate_min_side"] and k == "plate":
                     fail("PLATE", f"s{n}: plate 짧은 변 {min(sh['w'], sh['h'])} 미달")
+            if k in ("panel", "chip", "plate") and "radius" in sh:
+                # 반경 문법은 하나다 (사용자 최신 덱 실측 11.5 · apple_design "don't mix radii grammars").
+                # 도형마다 다른 반경을 주면 같은 화면에서 서로 다른 언어를 쓰게 된다.
+                want = spec["shapes"]["panel_radius"] if k == "panel" else spec["shapes"]["chip_radius"]
+                if abs(sh["radius"] - want) > 0.05:
+                    fail("RADIUS", f"s{n}: '{k}' 모서리 {sh['radius']} — 스케일 값은 {want} 하나다")
             if k == "connector" and min(sh["w"], sh["h"]) > 3:
                 fail("SHAPE", f"s{n}: 선 두께 {min(sh['w'], sh['h'])} — 1pt 안팎이어야 한다")
     else:

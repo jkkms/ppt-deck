@@ -118,8 +118,10 @@ shapes:
   badge_d: 32
   badge_d_sub: 24
   badge_gap: 13
+  panel_pad_h: 29.5
   panel_h: 61
   panel_radius: 0
+  chip_radius: 0    # 명세(v2)는 직각이다 — house 의 11.5 를 들이지 않는다
   panel_pad_x: 24
   panel_pad_y: 19
   panel_gap: 27.5
