@@ -73,9 +73,11 @@ class L:
                 best, gap = a + "\n" + b, g
         return best or t
 
-    def head(self, s, sl, title_style="h1", span=9):
-        """눈썹 + 제목. 두 좌표는 모든 장에서 고정이다 — 그래서 훑을 때 눈이 안 흔들린다."""
+    def head(self, s, sl, title_style="h1", span=9, x=None):
+        """눈썹 + 제목. 두 좌표는 모든 장에서 고정이다 — 그래서 훑을 때 눈이 안 흔들린다.
+        x 는 사진이 왼쪽에 설 때(image_split)만 옮긴다 — 세로 좌표는 그대로 둔다."""
         d = self.d
+        X = col_x(1) if x is None else x
         if sl.get("eyebrow"):
             if sl.get("eyebrow_chip") or d.spec.get("eyebrow_style") == "chip":
                 SH = d.spec["shapes"]
@@ -84,10 +86,10 @@ class L:
                                d.spec["fonts"]["body"]) * 0
                 w = block_w(sl["eyebrow"], d.spec["styles"]["small"],
                             d.spec["fonts"]["body"]) + 36
-                d.chip(s, col_x(1), self.eyebrow_y - 6, w, SH["eyebrow_chip_h"],
+                d.chip(s, X, self.eyebrow_y - 6, w, SH["eyebrow_chip_h"],
                        sl["eyebrow"], color="accent", text_color="ground", style="small")
             else:
-                d.text(s, "micro", col_x(1), self.eyebrow_y, span_w(span), 15,
+                d.text(s, "micro", X, self.eyebrow_y, span_w(span), 15,
                        sl["eyebrow"], color="accent", tag="eyebrow")
         if sl.get("runner"):
             d.text(s, "micro", col_x(9), self.eyebrow_y, span_w(4), 15,
@@ -103,7 +105,7 @@ class L:
             st = d.spec["styles"][title_style]
             t = self.balance(sl["title"], span_w(span), title_style)
             h = block_h(t, span_w(span), st, d.spec["fonts"][st["font"]])
-            d.text(s, title_style, col_x(1), self.title_y, span_w(span), h,
+            d.text(s, title_style, X, self.title_y, span_w(span), h,
                    t.split("\n"), tag="title")
             self.title_bottom = self.title_y + h
 
@@ -201,8 +203,25 @@ def _closing_qa(d, s, g, sl):
             warn(f"closing(Q&A): '{k}' 는 넣지 않는다 — 사용자가 직접 지운 요소다. 무시함")
 
 def section(d, s, m, sl):
-    """반전 필드. 큰 번호가 아니라 눈썹 + 제목의 위치만으로 장을 가른다."""
+    """반전 필드. 큰 번호가 아니라 눈썹 + 제목의 위치만으로 장을 가른다.
+
+    `part:` 를 주면 파트 표지가 된다 — 사용자 원칙 §10(배서위 덱에서 배운 점):
+    라벨 + 큰 제목 + 짧은 가로선 하나를 **모든 파트에서 같은 좌표**에 둔다.
+    좌표가 같아야 장을 넘길 때 "지금 어디쯤인지"가 저절로 읽힌다.
+    그래서 여기서만 광학 중심을 쓰지 않고 고정 y 를 쓴다.
+    """
     g = L(d)
+    if sl.get("part"):
+        SH = d.spec["shapes"]
+        py = SH["part_label_y"]
+        d.text(s, "micro", col_x(1), py, span_w(6), 15, str(sl["part"]),
+               color="accent", tag="part-label")
+        title = _t(sl, "title")
+        th = g.bh(title, span_w(9), "cover")
+        ty = SH["part_title_y"]
+        d.text(s, "cover", col_x(1), ty, span_w(9), th, title.split("\n"), tag="title")
+        d.hero_rule(s, col_x(1), ty + th + SH["part_rule_gap"], SH["part_rule_w"])
+        return
     if sl.get("number"):
         d.text(s, "display", col_x(1), g.eyebrow_y, span_w(3), 46,
                str(sl["number"]), color="accent", tag="section-num")
@@ -988,15 +1007,23 @@ def table_columns(d, n):
 
 
 def image_split(d, s, m, sl):
+    """사진 반쪽 + 글 반쪽. 크기와 위치는 고정하고 **좌우만 번갈아** 쓴다 (원칙 §10).
+    규칙은 유지한 채 화면이 지루해지지 않는다. `side: left|right` 로 직접 정할 수도 있다."""
     g = L(d)
     IW = 392
-    d.picture(s, sl["image"], 960 - IW, 0, IW, 540, sl.get("fit", "cover"),
+    side = sl.get("side", "auto")
+    if side == "auto":
+        side = "left" if getattr(d, "_img_side", "left") == "right" else "right"
+    d._img_side = side
+    ix = 0 if side == "left" else 960 - IW
+    tx = col_x(1) + (IW if side == "left" else 0)
+    d.picture(s, sl["image"], ix, 0, IW, 540, sl.get("fit", "cover"),
               focus=sl.get("focus", "center"))
-    g.head(s, sl, span=6)
+    g.head(s, sl, span=6, x=tx)
     body = _paras(sl, "bullets", "body")
     if body:
         bh_ = g.bh("\n".join(body), span_w(6), "body")
-        d.text(s, "body", col_x(1), resolve_y(bh_, d.spec, top=g.top), span_w(6), bh_, body,
+        d.text(s, "body", tx, resolve_y(bh_, d.spec, top=g.top), span_w(6), bh_, body,
                color="ink2", tag="body")
 
 
@@ -1054,7 +1081,8 @@ def build(outline_path, out_path=None, spec_path=None, embed=False):
         if run > spec["rhythm"]["max_same_layout_run"]:
             warn(f"slide {i}: '{lay}' {run}연속 — 리듬이 죽는다")
         prev = lay
-        s = d.slide(invert=lay in INVERTED or bool(sl.get("invert")))
+        s = d.slide(invert=lay in INVERTED or bool(sl.get("invert")),
+                    tone=sl.get("tone"))
         mode = LAYOUTS[lay](d, s, m, sl)
         d.notes(s, sl.get("notes"))     # 자세한 설명은 노트로
         if lay == "cards":

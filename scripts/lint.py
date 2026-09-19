@@ -17,6 +17,10 @@ SENTENCE_END = re.compile(r"(습니다|합니다|됩니다|입니다|이다|한�
 CLICHE = ["살펴보겠습니다", "알아보겠습니다", "중요합니다", "핵심입니다", "혁신적",
           "효율적", "다양한", "다각도", "체계적으로", "극대화", "패러다임",
           "~을 통해 ~할 수 있습니다"]
+# 원칙 §10 "따라 하지 않을 점" — 다른 튜터 자료에서 실제로 걸렸던 것들.
+# 중학생 대상 자료에서 한 단계 낮춰 쓰는 과장 표현.
+OVERSTATE = ["지옥", "즉사", "충격적", "경악", "소름", "미친", "완벽한", "절대적",
+             "폭발적", "혁명적", "무조건", "엄청난"]
 ERRORS: list[str] = []
 WARNS: list[str] = []
 
@@ -92,6 +96,14 @@ def main(path, spec_path=None):
             for c in CLICHE:
                 if c in t:
                     wrn(i, "CLICHE", f"상투어 '{c}' — 구체적 명사로 바꿔라: {t[:34]!r}")
+            for c in OVERSTATE:
+                if c in t:
+                    wrn(i, "OVERSTATE", f"과한 표현 '{c}' — 한 단계 낮춰라: {t[:34]!r}")
+
+        # 사진에는 출처를 단다. 받은 자료에 출처가 한 군데도 없던 것이 §10 의 첫 지적이다.
+        imgs = bool(sl.get("image")) or any(it.get("image") for it in (sl.get("items") or []))
+        if imgs and not (sl.get("source") or sl.get("credit")):
+            wrn(i, "SOURCE", "사진이 있는데 출처가 없다 — source: 로 단다")
 
         # 재설계 이후 two_col·image_split 의 bullets 는 불릿이 아니라 '산문 단락'이다
         # (§8.5 "우 본문 8줄"). 문장형·길이·균일성 검사는 여기에 적용하지 않는다.
@@ -120,6 +132,9 @@ def main(path, spec_path=None):
 
         if lay == "cards":
             n_it = len(sl.get("items") or [])
+            if n_it >= 6:
+                wrn(i, "SPLIT", f"카드 {n_it}개 — 한 장에 3~4개가 눈에 들기 좋다. "
+                                f"쪼갤 수 있으면 쪼개라 (원칙 §10). 비교표처럼 한눈에 봐야 하면 둬도 된다")
             if n_it not in (2, 3, 4, 5, 6):
                 err(i, "CARDS_N", f"cards 항목 {n_it}개 — 2~6개만 지원한다. "
                                   f"1개는 statement/data, 7개 이상은 슬라이드를 쪼개라")

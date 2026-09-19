@@ -398,11 +398,34 @@ class Deck:
         return self.colors[name]
 
     # ---- 슬라이드 ------------------------------------------------------
-    def slide(self, invert=False):
-        """반전 필드는 슬라이드 배경색으로 처리한다. 사각형을 깔지 않는다 (§12)."""
+    def slide(self, invert=False, tone=None):
+        """반전 필드는 슬라이드 배경색으로 처리한다. 사각형을 깔지 않는다 (§12).
+
+        tone="caution" 은 주의·위험을 다루는 장이다 — 사용자 원칙 §10 "색이 뜻을 나른다".
+        말로 "위험합니다"라고 쓰지 않아도 장을 넘기는 순간 전해지게 **바탕까지** 바꾼다.
+        팔레트에 caution hex 가 있을 때만 켜진다. 새 hex 는 그 하나뿐이고 나머지 톤은
+        기존 파생 규칙(derive)이 만든다.
+        """
         self.field_inverted = invert
         pal = invert_pal(self.base_pal) if invert else self.base_pal
-        self.colors = derive(pal, self.spec)
+        cau = self.base_pal.get("caution") if tone == "caution" else None
+        if tone == "caution" and not cau:
+            # editorial 명세는 hex 3개로 못박혀 있다 — 넷째 색을 몰래 들이지 않고 보통 필드로 둔다
+            print(f"  · 팔레트 '{self.pal_name}' 에 caution 색이 없다 — tone: caution 무시")
+            tone = None
+        if tone == "caution":
+            pal = {"ground": mix(cau, pal["ground"], self.spec["colors"].get("caution_tint_mix", 0.94)),
+                   "figure": cau, "accent": cau}
+        self.tone = tone
+        cfg = self.spec
+        if tone == "caution":
+            # 주의 잉크(자주)는 기본 잉크(먹)보다 밝다. 같은 비율로 톤을 뽑으면 캡션이
+            # 대비 기준 아래로 떨어진다 — 이 필드에서만 램프를 좁힌다. 검사는 derive 가 한다.
+            cfg = {**self.spec, "colors": {**self.spec["colors"],
+                                           "tone_ink2": self.spec["colors"].get("caution_ink2", 0.12),
+                                           "tone_muted": self.spec["colors"].get("caution_muted", 0.28),
+                                           "tone_faint": self.spec["colors"].get("caution_faint", 0.45)}}
+        self.colors = derive(pal, cfg)
         bg = "ground"
         s = self.prs.slides.add_slide(self._blank)
         fill = s.background.fill

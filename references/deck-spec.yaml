@@ -34,7 +34,9 @@ palettes:
   blueprint:   {ground: "122033", figure: "EDE6D6", accent: "D98E32"}
   graphite:    {ground: "FAFAF8", figure: "22252A", accent: "6E7F32"}
   dive:        {ground: "0E1A2B", figure: "FFFFFF", accent: "1B7FD4"}
-  forest:      {ground: "FBFAF7", figure: "161C18", accent: "1F5D42"}   # 면접대비 덱 실측
+  # caution 은 주의·위험 장에서 바탕까지 바꿀 때만 쓰는 넷째 색이다 (원칙 §10).
+  # 팔레트당 hex 하나만 더 두고, 바탕 톤은 기존 파생 규칙이 만든다. 강조색으로 쓰지 않는다.
+  forest:      {ground: "FBFAF7", figure: "161C18", accent: "1F5D42", caution: "9F1239"}  # 면접대비 덱 실측
 active_palette: forest
 
 # --- 색: 3색 -> 4단 톤 램프. 새 hex 는 생기지 않는다(전부 figure->ground 파생) ----
@@ -49,6 +51,10 @@ colors:
   accent_soft_mix: 0.37   # 보조 배지·연결선 (실측 6E9C7F)
   accent_mid_mix:  0.75   # 중첩 다이어그램 중간 고리 (실측 C7DDF2)
   accent_pale_mix: 0.88   # 중첩 바깥 고리 (실측 E4EDF7)
+  caution_tint_mix: 0.94  # 주의 장 바탕 = caution 을 ground 쪽으로 (배서위 덱 FFF1F2 와 같은 농도)
+  caution_ink2:  0.12     # 주의 장은 잉크가 밝아 램프를 좁힌다 (대비 기준은 그대로 지킨다)
+  caution_muted: 0.28
+  caution_faint: 0.45
   min_ratio_body: 4.5     # body 이상 크기는 ground 대비 4.5:1
   min_ratio_caption: 3.0  # 캡션(small·micro)은 3.0:1
 
@@ -108,6 +114,11 @@ shapes:
   badge_gap:    13      # 배지 오른변 -> 텍스트 (실측 174회, 압도적 최빈값)
   # 한 줄짜리 상자 높이 = 줄 높이 + panel_pad_h (원칙 §4-3: 17pt -> 0.72" = 52pt).
   # 1.0"(72pt)를 넘으면 두꺼워 보인다. 코드 판과 20pt 이상 굵은 핵심 문장 띠는 예외다.
+  # --- 파트 표지 (원칙 §10 — 좌표를 파트마다 똑같이 둔다) ---
+  part_label_y:  176    # 라벨 y. 모든 파트 표지가 같은 자리
+  part_title_y:  212    # 제목 y
+  part_rule_gap: 26     # 제목 아래 -> 짧은 가로선
+  part_rule_w:   64     # 가로선 길이. 장식이 아니라 파트 표지를 알아보게 하는 표시다
   panel_pad_h:  29.5    # 한 줄 상자의 글 위아래 여백 합 (0.41")
   panel_h:      61      # 두꺼운 띠(핵심 문장)용 고정 높이. 한 줄 안내 띠에는 쓰지 않는다
   # 모서리 반경은 도형 크기와 무관하게 하나로 고정한다. 사용자 최신 덱(Dive 2학기) 실측 —

@@ -118,6 +118,10 @@ shapes:
   badge_d: 32
   badge_d_sub: 24
   badge_gap: 13
+  part_label_y: 176
+  part_title_y: 212
+  part_rule_gap: 26
+  part_rule_w: 64
   panel_pad_h: 29.5
   panel_h: 61
   panel_radius: 0

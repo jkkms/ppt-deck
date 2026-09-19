@@ -15,8 +15,9 @@ slides:
     meta: ["제품기획팀 · 2026년 3월 12일", "내부 검토용 초안 v3"]
 
   # 03 section · blueprint 반전
+  # section · 파트 표지. part: 를 주면 라벨·제목·짧은 선이 모든 파트에서 같은 좌표에 선다
   - layout: section
-    number: "03"
+    part: "PART 02"
     runner: "3개 장 · 7분"
     title: "주문 주기를\n먼저 쪼갠다"
 
@@ -46,8 +47,10 @@ slides:
       - {index: "나", title: "모델을 바꾼다", body: "입력은 그대로 두고 예측기를 교체한다. 같은 오차가 다시 나타난다."}
 
   # 05 statement 가득 · graphite
+  # tone: caution · 주의해야 할 내용은 바탕까지 바꾼다 (말로 "주의"라고 쓰지 않는다)
   - layout: statement
     eyebrow: "02 / 논점"
+    tone: caution
     text: "재고는 창고의 문제가 아니라 주문서의 문제다"
     body: "발주 확정과 판매 반영 사이의 지연이 예측 오차의 절반을 만든다. 모델을 바꾸기 전에 이 구간을 먼저 줄인다."
 
@@ -210,6 +213,7 @@ slides:
   - layout: gallery
     eyebrow: "16 | 시각화"
     title: "같은 숫자, 네 가지 그림"
+    source: "직접 만든 예시 그래프"
     items:
       - {image: "sample/chart-line.png", title: "꺾은선", code: "plt.plot", body: "변해 가는 흐름"}
       - {image: "sample/chart-bar.png", title: "막대", code: "plt.bar", body: "항목끼리 비교"}
@@ -222,17 +226,16 @@ slides:
     source: "운영 회고록"
     note: "2025년 가을, 조교 6명 인터뷰"
 
-  # 11 cards dense (6) · graphite
+  # 11 cards dense (5) · graphite — 6개부터는 린트가 "쪼갤 수 있으면 쪼개라"고 말한다
   - layout: cards
     eyebrow: "07 / 범위"
-    title: "여섯 곳을 동시에 본다"
+    title: "다섯 곳을 동시에 본다"
     items:
       - {index: "01", title: "발주 승인", body: "주 단위로 모인다"}
       - {index: "02", title: "판매", body: "일 단위 수집"}
       - {index: "03", title: "실사", body: "평균 사흘 지연"}
       - {index: "04", title: "예측", body: "과소 추정 구간"}
       - {index: "05", title: "재심", body: "편차 3점 기준"}
-      - {index: "06", title: "로그", body: "판정 이력 보존"}
 
   # 07 two_col 적음 · letterpress
   - layout: two_col

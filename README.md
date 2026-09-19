@@ -57,7 +57,7 @@ AI로 만든 PPT는 내용과 무관하게 알아봅니다. 원인은 대부분 
 <table>
 <tr>
 <td width="50%"><img src="docs/cover.png" alt="cover"><br><code>cover</code> · 표지</td>
-<td width="50%"><img src="docs/section.png" alt="section"><br><code>section</code> · 장 구분, accent 전면 반전</td>
+<td width="50%"><img src="docs/section.png" alt="section (파트 표지)"><br><code>section</code> · 파트 표지. 라벨·제목·짧은 선이 모든 파트에서 같은 좌표</td>
 </tr>
 <tr>
 <td><img src="docs/cellgrid.png" alt="cellgrid"><br><code>cellgrid</code> · 자료구조를 칸으로 그려 가르친다</td>
@@ -70,6 +70,9 @@ AI로 만든 PPT는 내용과 무관하게 알아봅니다. 원인은 대부분 
 <tr>
 <td><img src="docs/closing-qa.png" alt="closing (질문 시간)"><br><code>closing</code> · 마무리 질문 장. 알약 라벨 · 큰 제목 · 맺음말 한 줄, 그림은 선택</td>
 <td><img src="docs/chain.png" alt="chain"><br><code>chain</code> · 전제 하나에서 꼬리를 무는 질문</td>
+</tr>
+<tr>
+<td colspan="2"><img src="docs/caution.png" alt="tone: caution"><br><code>tone: caution</code> · 주의·위험을 다루는 장은 바탕까지 바꾼다. 말로 "위험합니다"라고 쓰지 않는다</td>
 </tr>
 <tr>
 <td colspan="2"><img src="docs/table.png" alt="table"><br><code>table</code> · 네이티브 표를 쓰지 않는다. 테마 표스타일의 줄무늬 채움과 전체 테두리가 가장 알아보기 쉬운 템플릿 지문이라 헤어라인으로 직접 그린다</td>
