@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """§13 구조 검사 — 빌드된 .pptx 와 그 매니페스트를 본다. 전부 에러(경고 아님).
 
-사용:  lint_deck.py out/deck.pptx
+사용:  lint_deck.py out/deck.pptx [--spec 덱의_spec.yaml] [--allow-kind bar] [--free-tag chart-]
+
+덱 전용 확장(ext.py 로 레이아웃을 얹는 방식)은 옵션으로 검사 범위를 넓힌다 — 이 파일을 복사해
+문자열을 바꿔 끼우지 않는다.
+  --spec       덱이 쓰는 스펙(팔레트를 바꾼 사본 등)
+  --allow-kind 데이터를 나르는 도형 종류를 허용(분포 막대처럼 크기가 곧 데이터인 것만)
+  --free-tag   컬럼 격자 검사에서 뺄 글 태그 접두어(데이터 위치에 붙는 차트 글자 등)
 """
 from __future__ import annotations
 import argparse, json, os, re, sys, zipfile
@@ -11,13 +17,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from deckkit import load_spec, col_x, span_w, contrast, derive, invert_pal, content_r
 
 FAIL = []
+EXTRA_KINDS: set = set()          # --allow-kind
+EXTRA_TAGS: tuple = ()            # --free-tag
 
 
 def fail(code, msg): FAIL.append(f"[{code}] {msg}")
 
 
-def main(path):
+def main(path, spec_path=None):
     spec = load_spec()
+    if spec_path:
+        spec = load_spec(spec_path)
     man_p = os.path.splitext(path)[0] + ".manifest.json"
     man = json.load(open(man_p, encoding="utf-8")) if os.path.exists(man_p) else None
     z = zipfile.ZipFile(path)
@@ -83,6 +93,8 @@ def main(path):
                 # chain 의 들여쓰기(47.5pt step)와 배지 안 활자는 컬럼 그리드를 일부러 벗어난다.
                 # 계단이 관계를 나타내는 장치이기 때문이다 — 사용자 덱도 82.1/129.6/177.1 이다.
                 # pair-·output 은 판 안의 글(divided_pair, code_explain 실행 결과)이라 판 여백 기준이다.
+                if EXTRA_TAGS and b["tag"].startswith(EXTRA_TAGS):
+                    continue
                 if b["tag"].startswith(("chain-", "badge-", "panel-", "chip-",
                                         "card-", "stair-", "compare-", "nest-",
                                         "node-", "ring-", "code", "gallery-",
@@ -125,6 +137,7 @@ def main(path):
         # 축 위의 위치, 고리의 크기 자체가 관계를 나타내므로 장식이 아니다.
         ALLOWED = {"plate", "panel", "badge", "chip", "connector",
                    "node", "ring", "hero_rule", "table_rule", "glow"}
+        ALLOWED |= EXTRA_KINDS
         # glow(그림 뒤 조명)는 그림을 받칠 때만 — 사용자 원칙 「마무리(Q&A) 슬라이드」
         for sh in man.get("shapes", []):
             k, n = sh.get("kind"), sh["slide"]
@@ -213,4 +226,10 @@ def main(path):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("pptx")
-    sys.exit(main(ap.parse_args().pptx))
+    ap.add_argument("--spec", default=None)
+    ap.add_argument("--allow-kind", action="append", default=[])
+    ap.add_argument("--free-tag", action="append", default=[])
+    a = ap.parse_args()
+    EXTRA_KINDS = set(a.allow_kind)
+    EXTRA_TAGS = tuple(a.free_tag)
+    sys.exit(main(a.pptx, a.spec))

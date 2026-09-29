@@ -23,7 +23,7 @@ def main(mpath, tol, scale):
     for s in shapes:
         by_slide.setdefault(s["slide"], []).append(s)
 
-    bad = tot = 0
+    bad = tot = skipped = 0
     for n, shs in sorted(by_slide.items()):
         img = svgpreview.raster(man, n, scale).convert("RGB")
         for sh in shs:
@@ -42,6 +42,7 @@ def main(mpath, tol, scale):
                     if abs(r - fill[0]) + abs(g - fill[1]) + abs(b - fill[2]) > 90:
                         xs.append(xx); ys.append(yy)
             if not xs:
+                skipped += 1
                 continue                      # 글자 없는 마디(node)는 건너뛴다
             tot += 1
             cx_ink = (min(xs) + max(xs) + 1) / 2 / scale
@@ -52,7 +53,10 @@ def main(mpath, tol, scale):
                 bad += 1
                 print(f"  ✗ s{n:02d} {sh['kind']:6} ({sh['x']:.0f},{sh['y']:.0f}) "
                       f"{sh['w']:.0f}x{sh['h']:.0f}  좌우 {dx:+.2f}pt  상하 {dy:+.2f}pt")
-    print(f"\n  중앙 정렬 {tot - bad}/{tot} 통과 · 벗어난 도형 {bad}개 (허용 {tol}pt)")
+    # "0개"를 믿기 전에 몇 개를 쟀는지 본다 — 재지 않은 도형은 통과로 세지 않는다(2026-09-25:
+    # 다른 덱의 감사가 폭 3" 넘는 카드만 재서 4·5칸 줄을 통째로 빼놓고 0개를 보고했다)
+    print(f"\n  중앙 정렬 {tot - bad}/{tot} 통과 · 벗어난 도형 {bad}개 (허용 {tol}pt)"
+          f" · 대상 {len(shapes)}개 중 글자 없어 건너뜀 {skipped}개")
     return 1 if bad else 0
 
 
