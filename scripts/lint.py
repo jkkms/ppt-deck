@@ -200,6 +200,39 @@ def main(path, spec_path=None):
         for tx in texts_of(sl):
             if len(CONJ.findall(tx)) >= 2:
                 wrn(i, "COMMA", f"연결어미 뒤 쉼표가 반복된다 — 빼는 편이 자연스럽다: {tx[:34]!r}")
+    # --- 말투: 문학적·극적 표현 (2026-09-29 발표 피드백) ---------------------
+    # 청중 반응 "말투가 너무 오글거려 / 느끼해 / 몸이 베베 꼬이는 말투". 디자인이 아니라
+    # 제목이 문제였다. 은유(두드리다), 쉼표로 끊어 여운 만들기(같은 공격, 열 번),
+    # 한다체 선언(토큰 하나면 충분하다), 수사 의문(얼마나 잘 가려내나),
+    # 연출용 접속 라벨(그런데)이 걸렸다. 제목은 무엇에 대한 장인지 말하는 이름표다.
+    LITERARY = ("두드려", "두드리", "민낯", "속살", "여정", "블랙박스는", "닫혀 있",
+                "열쇠", "마법")
+    TRANSITION = {"그런데", "하지만", "그리고", "그래서", "근데", "그러나"}
+    for i, sl in enumerate(slides, 1):
+        heads = [str(sl[k]) for k in ("title", "text") if sl.get(k)]
+        for raw in heads:
+            t = raw.replace("\n", " ").strip()
+            why = []
+            # 한다체 자체는 괜찮다("연습은 이렇게 한다"). 조건·대조·평가어가 붙어
+            # 표어가 될 때만 잡는다 — "토큰 하나면 충분하다", "생각보다 닫혀 있지 않다"
+            if t.endswith("다") and not re.search(r"(습니다|입니다|합니다|됩니다)$", t) and \
+                    re.search(r"(면 |생각보다|뿐|만으로|아니라|충분|않다$|없다$|이다$)", t):
+                why.append("선언형 표어")
+            if re.search(r"(일까|을까|는가|인가|내나|되나)\??$", t):
+                why.append("수사 의문")
+            m_ = re.search(r"\S\s\S+,\s", t)
+            if m_:
+                why.append("쉼표로 끊는 여운")
+            lit = [w for w in LITERARY if w in t]
+            if lit:
+                why.append(f"은유 '{lit[0]}'")
+            if why:
+                wrn(i, "TONE", f"{' · '.join(why)} — 발표에서 오글거린다는 피드백. "
+                               f"무엇에 대한 장인지 이름표로 써라: {t[:30]!r}")
+        eb = str(sl.get("eyebrow", "")).strip()
+        if eb in TRANSITION:
+            wrn(i, "TONE", f"눈썹 '{eb}' — 장면 전환용 접속어는 연출이다. 무엇에 대한 장인지 적어라")
+
     # 슬라이드에 설명이 길게 들어갔는데 발표 노트가 비어 있으면 노트로 내리라고 권고
     for i, sl in enumerate(slides, 1):
         body_len = sum(len(t) for t in texts_of(sl))
