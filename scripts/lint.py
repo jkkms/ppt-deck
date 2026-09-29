@@ -21,6 +21,17 @@ CLICHE = ["살펴보겠습니다", "알아보겠습니다", "중요합니다", "
 # 중학생 대상 자료에서 한 단계 낮춰 쓰는 과장 표현.
 OVERSTATE = ["지옥", "즉사", "충격적", "경악", "소름", "미친", "완벽한", "절대적",
              "폭발적", "혁명적", "무조건", "엄청난"]
+# 원칙 §3 humanizer 표 (2026-09-19 지적) — 슬라이드 문구에서 실제로 걸린 공식 문장들.
+AITELL = [
+    (re.compile(r"[을를]\s*잊으면.*(않습니다|안 됩니다|없습니다)"),
+     "경고 공식 '~를 잊으면 ~않습니다' — 무엇을 하는지로 쓴다(예: plt.show() 는 '이제 화면에 띄워라'라는 뜻)"),
+    (re.compile(r"만\s*바꾸면.*바뀝니다"),
+     "조건–결과 공식 '~만 바꾸면 ~가 바뀝니다' — 어디에 적는지로 쓴다(예: 그래프 종류는 kind 에 적습니다)"),
+    (re.compile(r"사람이.*듯,?\s*(인공지능|AI|컴퓨터|모델)"),
+     "사람에 빗댄 대구 — 인공지능이 실제로 하는 일을 바로 쓴다"),
+    (re.compile(r"어떤\s*\S+에서나|언제나 옳|항상 좋"),
+     "근거 없는 단정 — 실제로 되는 예를 든다(예: 엑셀에서도 열리고 메모장으로도 볼 수 있습니다)"),
+]
 ERRORS: list[str] = []
 WARNS: list[str] = []
 
@@ -42,6 +53,10 @@ def texts_of(sl) -> list[str]:
     for it in (sl.get("items") or []):
         out += [str(it.get(k, "")) for k in
                 ("value", "unit", "caption", "index", "title", "body") if it.get(k)]
+    for k in ("point", "explain"):
+        if sl.get(k): out.append(str(sl[k]))
+    for it in (sl.get("pair") or []):
+        out += [str(it.get(k, "")) for k in ("title", "desc", "head", "body") if it.get(k)]
     for r in (sl.get("rows") or []):
         out += [str(c) for c in r]
     out += [str(h) for h in (sl.get("headers") or [])]
@@ -99,6 +114,9 @@ def main(path, spec_path=None):
             for c in OVERSTATE:
                 if c in t:
                     wrn(i, "OVERSTATE", f"과한 표현 '{c}' — 한 단계 낮춰라: {t[:34]!r}")
+            for rx, why in AITELL:
+                if rx.search(t):
+                    wrn(i, "AITELL", f"{why}: {t[:34]!r}")
 
         # 사진에는 출처를 단다. 받은 자료에 출처가 한 군데도 없던 것이 §10 의 첫 지적이다.
         imgs = bool(sl.get("image")) or any(it.get("image") for it in (sl.get("items") or []))

@@ -207,7 +207,7 @@ def resolve_y(block_height: float, spec: dict, top: float | None = None) -> floa
     r = spec.get("rhythm_y")
     t = top if top is not None else (r["content_y"] if r else 56.0)
     bottom = r["content_bottom"] if r else 484.0
-    bias = spec["anchors"].get("block_bias", 0.38)
+    bias = spec["anchors"].get("block_bias", 0.5)
     return t + max(0.0, (bottom - t - block_height) * bias)
 
 

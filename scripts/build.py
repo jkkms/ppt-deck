@@ -303,7 +303,7 @@ def cards(d, s, m, sl):
     g.head(s, sl, span=9)
     mode = CARD_MODE[n]
     gv = d.spec["cards"]["gutter_v"]
-    BIAS = 0.38      # 남는 높이의 38%만 위에 둔다 — 정중앙보다 살짝 위가 안정적이다
+    BIAS = d.spec["anchors"].get("block_bias", 0.5)   # 원칙 §4 두 칸 배치: 위로 몰지 말고 가운데
 
     def cell_h(it, w):
         h = d.spec["shapes"]["badge_d"] + 12 + g.bh(it.get("title", ""), w, tstyle)
@@ -815,15 +815,36 @@ def code_explain(d, s, m, sl):
 
     eh_t = g.bh(sl.get("point", ""), ew - 60, "h2") if sl.get("point") else 0
     eh_b = g.bh(sl.get("explain", ""), ew - 60, "lead") if sl.get("explain") else 0
-    ph = max(len(lines) * cst["size"] * cst["leading"] + SH["code_pad_y"] * 2,
-             eh_t + (12 + eh_b if eh_b else 0) + 44)
-    y = g.block
+    code_h = len(lines) * cst["size"] * cst["leading"]
+    # 실행 결과는 코드 판 **안에** 가는 선으로 나눠 붙인다 (원칙 §4 '한 열에 상자가 둘이면 하나로').
+    # 코드 판 밑에 결과 판을 따로 두면 같은 열에 상자가 둘이 되어 지저분하다.
+    out = [str(l) for l in (sl.get("output") or [])]
+    OG = SH.get("divided_gap", 18)
+    lab_st = d.spec["styles"]["micro"]
+    out_h = (lab_st["size"] * lab_st["leading"] + 6 + len(out) * cst["size"] * cst["leading"]) if out else 0
+    inner = code_h + (2 * OG + out_h if out else 0)
+    ph = max(inner + SH["code_pad_y"] * 2, eh_t + (12 + eh_b if eh_b else 0) + 44)
+
+    cells = sl.get("cells") or []
+    cells_r = sl.get("cells_right") or []
+    cs, gp = SH["chipcell"], SH["chipcell_gap"]
+    below = (34 + cs) if (cells or cells_r) else 0
+    # 본문이 영역을 다 채우지 않으면 위로 몰지 않고 가운데에 (원칙 §4 두 칸 배치)
+    y = resolve_y(ph + below, d.spec, top=g.block)
     d.panel(s, cx, y, cw, ph, color="figure", radius=SH["panel_radius"])
-    d.text(s, "code", cx + SH["code_pad_x"], y + (ph - len(lines) * cst["size"]
-           * cst["leading"]) / 2, cw - SH["code_pad_x"] * 2,
-           len(lines) * cst["size"] * cst["leading"], lines, color="ground",
-           accent_paras=tuple(i for i, l in enumerate(lines) if l.lstrip().startswith("#")),
+    top = y + (ph - inner) / 2
+    d.text(s, "code", cx + SH["code_pad_x"], top, cw - SH["code_pad_x"] * 2, code_h, lines,
+           color="ground", accent_paras=tuple(i for i, l in enumerate(lines) if l.lstrip().startswith("#")),
            tag="code")
+    if out:
+        ry = top + code_h + OG
+        d.divider(s, cx + SH["code_pad_x"], ry, cw - SH["code_pad_x"] * 2, color="muted")
+        oy = ry + OG
+        lh_ = lab_st["size"] * lab_st["leading"]
+        d.text(s, "micro", cx + SH["code_pad_x"], oy, span_w(3), lh_, sl.get("output_label", "실행 결과"),
+               color="muted", tag="output-label")
+        d.text(s, "code", cx + SH["code_pad_x"], oy + lh_ + 6, cw - SH["code_pad_x"] * 2,
+               len(out) * cst["size"] * cst["leading"], out, color="accent_tint", tag="output")
     d.panel(s, ex, y, ew, ph, radius=SH["panel_radius"])
     ty = y + (ph - (eh_t + (12 + eh_b if eh_b else 0))) / 2
     if eh_t:
@@ -832,16 +853,90 @@ def code_explain(d, s, m, sl):
         d.text(s, "lead", ex + 30, ty + eh_t + 12, ew - 60, eh_b, sl["explain"],
                color="ink2", tag="explain-body")
 
-    cells = sl.get("cells") or []
-    if cells:
+    # 그림(배열 칸)은 **바로 위 상자의 열 안에 가운데**로 (원칙 §4, 2차시 23쪽).
+    # 상자는 오른쪽, 그림은 왼쪽에 몰려 있으면 시선이 왼쪽 위 → 아래 → 오른쪽 위로 튄다.
+    def _cells(vals, label, x0, w0):
+        vals = [str(v) for v in vals[:14]]
+        gw = len(vals) * cs + (len(vals) - 1) * gp
+        gx = x0 + (w0 - gw) / 2
         cy = y + ph + 34
-        if sl.get("cells_label"):
-            d.text(s, "small", cx, cy - 26, span_w(6), 20, sl["cells_label"],
-                   color="muted", tag="cells-label")
-        cs, gp = SH["chipcell"], SH["chipcell_gap"]
-        for i, v in enumerate(cells[:14]):
-            d.chip(s, cx + i * (cs + gp), cy, cs, cs, str(v),
+        if label:
+            d.text(s, "small", gx, cy - 26, gw, 20, label, color="muted", align="center",
+                   tag="cells-label")
+        for i, v in enumerate(vals):
+            d.chip(s, gx + i * (cs + gp), cy, cs, cs, v,
                    color="accent_tint", text_color="figure", style="lead")
+    if cells:
+        _cells(cells, sl.get("cells_label"), cx, cw)
+    if cells_r:
+        _cells(cells_r, sl.get("cells_right_label"), ex, ew)
+
+
+def divided_pair(d, s, m, sl):
+    """두 열, 열마다 상자 **하나**. 위는 이름과 한 줄 설명, 가는 선, 아래는 실제 모습.
+
+    원칙 §4 '한 열에 상자가 둘이면 하나로'(2차시 11쪽, 상자 4개 → 2개). 좌우 구분선 높이를
+    맞추려고 위 칸(제목+설명)은 양쪽 같은 스타일로, 아래 칸은 더 긴 쪽 높이에 맞춰 가운데에 둔다.
+    아래 칸은 `code:`(고정폭 줄) 또는 `head:`+`body:`(굵은 한 줄 + 설명) 중 하나.
+    """
+    g = L(d)
+    SH = d.spec["shapes"]
+    g.head(s, sl, span=12)
+    pair = (sl.get("pair") or [])[:2]
+    if len(pair) != 2:
+        raise SystemExit("divided_pair 는 항목이 정확히 2개여야 한다.")
+    gap = SH.get("compare_gap", 25)
+    pw = (span_w(12) - gap) / 2
+    PX, PY, G = 30, SH.get("divided_pad_y", 34), SH.get("divided_gap", 24)
+    iw = pw - 2 * PX
+    cst = d.spec["styles"]["code"]
+
+    def top_h(it):
+        th = g.bh(it.get("title", ""), iw, "h2")
+        sh_ = g.bh(it["desc"], iw, "body") if it.get("desc") else 0
+        return th, sh_, th + (6 + sh_ if sh_ else 0)
+
+    def bottom_h(it):
+        if it.get("code"):
+            return len(it["code"]) * cst["size"] * cst["leading"]
+        hh = g.bh(it.get("head", ""), iw, "h2") if it.get("head") else 0
+        bh_ = g.bh(it["body"], iw, "body") if it.get("body") else 0
+        return hh + (10 + bh_ if bh_ else 0)
+
+    T = max(top_h(it)[2] for it in pair)
+    B = max(bottom_h(it) for it in pair)
+    ph = PY * 2 + T + 2 * G + B
+    y = resolve_y(ph, d.spec, top=g.block)
+    for i, it in enumerate(pair):
+        x = col_x(1) + i * (pw + gap)
+        dark = bool(it.get("dark"))
+        d.panel(s, x, y, pw, ph, color="figure" if dark else "accent_tint", radius=SH["panel_radius"])
+        tc, bc = ("ground", "accent_tint") if dark else ("figure", "ink2")
+        th, sh_, tt = top_h(it)
+        ty = y + PY + (T - tt)
+        d.text(s, "h2", x + PX, ty, iw, th, it.get("title", ""), color=tc, tag="pair-title")
+        if sh_:
+            d.text(s, "body", x + PX, ty + th + 6, iw, sh_, it["desc"], color=bc, tag="pair-desc")
+        if it.get("label"):
+            d.text(s, "micro", x + pw - PX - span_w(3), y + PY - 14, span_w(3), 16, it["label"],
+                   color="accent" if not dark else "accent_tint", align="right", tag="pair-label")
+        ry = y + PY + T + G
+        d.divider(s, x + PX, ry, iw, color="muted" if dark else "hairline")
+        bh_all = bottom_h(it)
+        by = ry + G + (B - bh_all) / 2
+        if it.get("code"):
+            lines = [str(l) for l in it["code"]]
+            d.text(s, "code", x + PX, by, iw, bh_all, lines, color=tc,
+                   accent_paras=tuple(k for k, l in enumerate(lines) if l.lstrip().startswith("#")),
+                   tag="pair-code")
+        else:
+            hh = g.bh(it.get("head", ""), iw, "h2") if it.get("head") else 0
+            if hh:
+                d.text(s, "h2", x + PX, by, iw, hh, it["head"], color="accent" if not dark else "ground",
+                       tag="pair-head")
+            if it.get("body"):
+                d.text(s, "body", x + PX, by + hh + (10 if hh else 0), iw, bh_all - hh - (10 if hh else 0),
+                       it["body"], color=bc, tag="pair-body")
 
 
 def cellgrid(d, s, m, sl):
@@ -971,7 +1066,8 @@ def table(d, s, m, sl):
         warn(f"slide {d._slide_i}: 표 {len(rows)}행 > 한도 {lim}행 — 슬라이드를 나눠라")
     rows = rows[:lim]
     cols, pad = table_columns(d, n), T["pad_x"]
-    hy = T.get("header_y", g.block)
+    # 표 머리 라벨이 제목 바로 밑에 붙지 않게 조금 내린다 (원칙 §4 두 칸 배치)
+    hy = max(T.get("header_y", g.block), g.title_bottom + T.get("header_gap", 34))
     avail = g.bottom - hy - T["header_h"] - (26 if sl.get("footnote") else 0)
     row_h = min(52.0, max(T["row_h"], avail / max(1, len(rows))))
     d.plate(s, col_x(1), hy, span_w(12), T["header_h"], color="figure")
@@ -1047,7 +1143,7 @@ LAYOUTS = {"cover": cover, "closing": closing, "section": section, "chain": chai
            "statement": statement, "two_col": two_col, "cards": cards,
            "panel_list": panel_list, "card_grid": card_grid,
            "timeline": timeline, "stair": stair, "compare": compare, "nest": nest,
-           "code": code, "code_explain": code_explain,
+           "code": code, "code_explain": code_explain, "divided_pair": divided_pair,
            "cellgrid": cellgrid, "gallery": gallery,
            "data": data, "quote": quote, "table": table,
            "image_split": image_split, "image_full": image_full}

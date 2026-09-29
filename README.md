@@ -52,7 +52,7 @@ AI로 만든 PPT는 내용과 무관하게 알아봅니다. 원인은 대부분 
 
 <br>
 
-## 레이아웃 10종
+## 레이아웃 11종
 
 <table>
 <tr>
@@ -64,8 +64,12 @@ AI로 만든 PPT는 내용과 무관하게 알아봅니다. 원인은 대부분 
 <td><img src="docs/data.png" alt="data"><br><code>data</code> · 히어로 1 + 보조 2의 비대칭 위계</td>
 </tr>
 <tr>
-<td><img src="docs/code-explain.png" alt="code_explain"><br><code>code_explain</code> · 코드 왼쪽, 설명 오른쪽, 배열 칸 아래</td>
+<td><img src="docs/code-explain.png" alt="code_explain"><br><code>code_explain</code> · 코드 왼쪽(실행 결과는 판 안에), 설명 오른쪽, 칸 그림은 각 열 가운데</td>
 <td><img src="docs/gallery.png" alt="gallery"><br><code>gallery</code> · 같은 숫자를 여러 방식으로</td>
+</tr>
+<tr>
+<td><img src="docs/divided-pair.png" alt="divided_pair"><br><code>divided_pair</code> · 열마다 상자 하나 — 이름·한 줄 설명 / 가는 선 / 실제 모습. 좌우 구분선 높이가 나란하다</td>
+<td></td>
 </tr>
 <tr>
 <td><img src="docs/closing-qa.png" alt="closing (질문 시간)"><br><code>closing</code> · 마무리 질문 장. 알약 라벨 · 큰 제목 · 맺음말 한 줄, 그림은 선택</td>

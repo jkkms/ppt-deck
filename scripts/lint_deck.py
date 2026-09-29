@@ -82,10 +82,12 @@ def main(path):
                 # image_full 의 글자는 판 내부 좌표라 그리드 밖을 허용한다
                 # chain 의 들여쓰기(47.5pt step)와 배지 안 활자는 컬럼 그리드를 일부러 벗어난다.
                 # 계단이 관계를 나타내는 장치이기 때문이다 — 사용자 덱도 82.1/129.6/177.1 이다.
+                # pair-·output 은 판 안의 글(divided_pair, code_explain 실행 결과)이라 판 여백 기준이다.
                 if b["tag"].startswith(("chain-", "badge-", "panel-", "chip-",
                                         "card-", "stair-", "compare-", "nest-",
                                         "node-", "ring-", "code", "gallery-",
-                                        "cg-", "explain-", "cells-")) or \
+                                        "cg-", "explain-", "cells-",
+                                        "pair-", "output")) or \
                    b["tag"] in ("full-title", "caption", "ledger-index") or \
                    (b["tag"] == "eyebrow" and b["y"] > 300):
                     continue
