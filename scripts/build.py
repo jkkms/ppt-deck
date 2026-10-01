@@ -822,8 +822,14 @@ def code_explain(d, s, m, sl):
     OG = SH.get("divided_gap", 18)
     lab_st = d.spec["styles"]["micro"]
     out_h = (lab_st["size"] * lab_st["leading"] + 6 + len(out) * cst["size"] * cst["leading"]) if out else 0
-    inner = code_h + (2 * OG + out_h if out else 0)
-    ph = max(inner + SH["code_pad_y"] * 2, eh_t + (12 + eh_b if eh_b else 0) + 44)
+    # 코드가 길어 결과까지 코드 판에 넣으면 영역을 넘칠 때는 `output_side: explain` —
+    # 결과를 설명 판 맨 위에 두고 가는 선 아래에 요지·설명 (원칙 §4, 2026-10-01).
+    right = out and sl.get("output_side") == "explain"
+    inner = code_h + (2 * OG + out_h if out and not right else 0)
+    ex_h = eh_t + (12 + eh_b if eh_b else 0) + ((out_h + 2 * OG) if right else 0)
+    ph = max(inner + SH["code_pad_y"] * 2, ex_h + 44)
+    if out and not right and (ph - inner) / 2 < 12:
+        warn(f"slide {d._slide_i}: 코드+실행 결과 위 여백이 12pt 미만 — output_side: explain 을 쓰거나 줄을 줄여라")
 
     cells = sl.get("cells") or []
     cells_r = sl.get("cells_right") or []
@@ -836,7 +842,7 @@ def code_explain(d, s, m, sl):
     d.text(s, "code", cx + SH["code_pad_x"], top, cw - SH["code_pad_x"] * 2, code_h, lines,
            color="ground", accent_paras=tuple(i for i, l in enumerate(lines) if l.lstrip().startswith("#")),
            tag="code")
-    if out:
+    if out and not right:
         ry = top + code_h + OG
         d.divider(s, cx + SH["code_pad_x"], ry, cw - SH["code_pad_x"] * 2, color="muted")
         oy = ry + OG
@@ -846,7 +852,15 @@ def code_explain(d, s, m, sl):
         d.text(s, "code", cx + SH["code_pad_x"], oy + lh_ + 6, cw - SH["code_pad_x"] * 2,
                len(out) * cst["size"] * cst["leading"], out, color="accent_tint", tag="output")
     d.panel(s, ex, y, ew, ph, radius=SH["panel_radius"])
-    ty = y + (ph - (eh_t + (12 + eh_b if eh_b else 0))) / 2
+    ty = y + (ph - ex_h) / 2
+    if right:                                  # 결과 · 가는 선 · 요지와 설명
+        lh_ = lab_st["size"] * lab_st["leading"]
+        d.text(s, "micro", ex + 30, ty, ew - 60, lh_, sl.get("output_label", "실행 결과"),
+               color="muted", tag="output-label")
+        d.text(s, "code", ex + 30, ty + lh_ + 6, ew - 60, len(out) * cst["size"] * cst["leading"], out,
+               color="figure", tag="output")
+        d.divider(s, ex + 30, ty + out_h + OG, ew - 60, color="hairline")
+        ty += out_h + 2 * OG
     if eh_t:
         d.text(s, "h2", ex + 30, ty, ew - 60, eh_t, sl["point"], tag="explain-point")
     if eh_b:
