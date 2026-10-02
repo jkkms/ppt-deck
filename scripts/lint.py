@@ -218,6 +218,19 @@ def main(path, spec_path=None):
         for tx in texts_of(sl):
             if len(CONJ.findall(tx)) >= 2:
                 wrn(i, "COMMA", f"연결어미 뒤 쉼표가 반복된다 — 빼는 편이 자연스럽다: {tx[:34]!r}")
+    # --- 옮겨 온 글의 마크업 잔재 (2026-10-02) ---------------------------------
+    # 한글 수식(HancomEQN)·LaTeX·Markdown 원고를 화면 글로 바꾸면 변환기가 놓친 기호가 남는다.
+    # 다른 덱에서 노트에 「0.1``%」「(1`,~1)」「sqrt{b²-4ac}} over {2a}」가 남아 배포됐다 —
+    # 노트는 렌더 검수에 안 보이므로 글자로 검사한다. 화면 글과 notes 둘 다 본다.
+    # 영어 낱말(over, times, rm 명령)과 헷갈리지 않게 수식 문법의 꼴로만 잡는다
+    MARKUP = re.compile(r"`|⟦|⟧|\}\s*over\s*\{|\bsqrt\s*\{|\brm\s*\{|\b(?:LEQ|GEQ|rightarrow)\b|"
+                        r"\\(?:frac|sqrt|times|cdot|left|right|mathrm|alpha|beta|theta|pi)\b|[_^]\{|\*\*")
+    for i, sl in enumerate(slides, 1):
+        for tx in texts_of(sl) + ([str(sl["notes"])] if sl.get("notes") else []):
+            m_ = MARKUP.search(tx)
+            if m_:
+                wrn(i, "MARKUP", f"마크업 잔재 {m_.group(0)!r} — 변환이 덜 됐다: "
+                                 f"{tx[max(0, m_.start() - 16):m_.end() + 16]!r}")
     # --- 말투: 문학적·극적 표현 (2026-09-29 발표 피드백) ---------------------
     # 청중 반응 "말투가 너무 오글거려 / 느끼해 / 몸이 베베 꼬이는 말투". 디자인이 아니라
     # 제목이 문제였다. 은유(두드리다), 쉼표로 끊어 여운 만들기(같은 공격, 열 번),
