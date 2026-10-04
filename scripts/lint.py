@@ -240,7 +240,9 @@ def main(path, spec_path=None):
                 "열쇠", "마법")
     TRANSITION = {"그런데", "하지만", "그리고", "그래서", "근데", "그러나"}
     for i, sl in enumerate(slides, 1):
-        heads = [str(sl[k]) for k in ("title", "text") if sl.get(k)]
+        # quote 의 text 는 남의 말을 그대로 옮긴 인용문이다 — 우리 제목의 어투로 고칠 대상이 아니다
+        keys = ("title",) if sl.get("layout") == "quote" else ("title", "text")
+        heads = [str(sl[k]) for k in keys if sl.get(k)]
         for raw in heads:
             t = raw.replace("\n", " ").strip()
             why = []
