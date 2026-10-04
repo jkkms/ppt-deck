@@ -106,8 +106,16 @@ def is_dark_ground(pal: dict) -> bool:
 
 
 def invert_pal(pal: dict) -> dict:
-    """반전 필드. accent는 반전하지 않는다."""
-    return {"ground": pal["figure"], "figure": pal["ground"], "accent": pal["accent"]}
+    """반전 필드. accent는 반전하지 않는다.
+
+    팔레트에 dark 가 있으면 반전 바탕은 잉크색이 아니라 그 색이다 — Dive 시리즈는
+    잉크 121821 과 별개로 어두운 장 바탕 0E1A2B 를 썼다. highlight·caution 은 그대로 따라간다.
+    """
+    out = {"ground": pal.get("dark", pal["figure"]), "figure": pal["ground"], "accent": pal["accent"]}
+    for k in ("highlight", "caution", "dark"):
+        if k in pal:
+            out[k] = pal[k]
+    return out
 
 
 def derive(pal: dict, cfg: dict) -> dict:
@@ -125,7 +133,13 @@ def derive(pal: dict, cfg: dict) -> dict:
                "faint": mix(f, g, c["tone_faint"]),
                "hairline": mix(f, g, c["hairline_mix"]),
                # 실측 — 패널 채움 EDF1EC = accent 를 ground 쪽으로 0.94, 보조 배지 6E9C7F = 0.37
-               "accent_tint": mix(pal["accent"], g, c.get("accent_tint_mix", 0.94)),
+               # 어두운 바탕 위 판은 더 진하게 섞어야 보인다 (Dive 실측 — 밝은 쪽 0.93, 어두운 쪽 0.79)
+               "accent_tint": mix(pal["accent"], g, c.get("accent_tint_mix_dark", c.get("accent_tint_mix", 0.94))
+                                  if is_dark_ground(pal) else c.get("accent_tint_mix", 0.94)),
+               # 둘째 강조색. 없으면 accent — 알약 라벨·Colab 칸 표시처럼 눈을 끌 자리에만 쓴다
+               "highlight": pal.get("highlight", pal["accent"]),
+               "dark": pal.get("dark", f),             # 밝은 장 안의 어두운 띠·강조 카드
+               "paper": pal.get("paper", g),           # 주의 장(tint)에서 물들기 전 바탕 — 흰 카드
                "accent_soft": mix(pal["accent"], g, c.get("accent_soft_mix", 0.37)),
                "accent_mid":  mix(pal["accent"], g, c.get("accent_mid_mix", 0.75)),
                "accent_pale": mix(pal["accent"], g, c.get("accent_pale_mix", 0.88))}
@@ -141,6 +155,8 @@ def derive(pal: dict, cfg: dict) -> dict:
     assert contrast(muted, f) >= c["muted_min_ratio_figure"]
     return {"ground": g, "figure": f, "accent": pal["accent"],
             "ink2": f, "muted": muted, "faint": muted, "hairline": hairline,
+            "highlight": pal.get("highlight", pal["accent"]),
+            "dark": pal.get("dark", f), "paper": pal.get("paper", g),
             "accent_tint": mix(pal["accent"], g, 0.94),
             "accent_soft": mix(pal["accent"], g, 0.37),
             "accent_mid":  mix(pal["accent"], g, c.get("accent_mid_mix", 0.75)),
@@ -367,11 +383,58 @@ def embed_fonts(path: str, fonts: dict) -> int:
     return len(used)
 
 
+# ---------------------------------------------------------------- 잉크 좌우 보정
+_INK_FONTS: dict = {}
+
+
+def ink_shift(text: str, font: str, size: float) -> float:
+    """글자폭(advance) 기준 가운데와 잉크 가운데의 차이(pt). 양수면 잉크가 오른쪽으로 치우친다.
+
+    PowerPoint 와 미리보기는 글자폭으로 가운데를 잡는다. 그런데 첫 글자의 왼쪽 여백과
+    마지막 글자의 오른쪽 여백이 다르면 잉크가 한쪽으로 쏠린다 — 칸 안 '도시'가 0.62pt 왼쪽에
+    섰다(2026-10-04, dive). 이 값만큼 상자를 반대로 옮기면 잉크가 칸 가운데에 온다.
+    한 줄짜리 짧은 글(칩·배지·칸)에만 쓴다.
+    """
+    s = str(text).strip()
+    if not s or "\n" in s:
+        return 0.0
+    try:
+        import metrics as _m
+        from fontTools.ttLib import TTFont
+    except Exception:
+        return 0.0
+    if font not in _INK_FONTS:
+        path = _m._find(_m.WANT.get(font, "Pretendard-Regular"))
+        if not path:
+            _INK_FONTS[font] = None
+        else:
+            f = TTFont(path, lazy=True)
+            _INK_FONTS[font] = (f, f.getBestCmap(), f["head"].unitsPerEm)
+    ent = _INK_FONTS[font]
+    if not ent:
+        return 0.0
+    f, cmap, upm = ent
+    first, last = cmap.get(ord(s[0])), cmap.get(ord(s[-1]))
+    if not first or not last or "glyf" not in f:
+        return 0.0
+    g1, g2 = f["glyf"][first], f["glyf"][last]
+    if not hasattr(g1, "xMin") or not hasattr(g2, "xMax"):
+        return 0.0
+    left = g1.xMin                                  # 첫 글자 왼쪽 여백
+    right = f["hmtx"][last][0] - g2.xMax            # 마지막 글자 오른쪽 여백
+    return (left - right) / 2 * size / upm
+
+
 # ---------------------------------------------------------------- Deck
 class Deck:
     def __init__(self, spec: dict, palette: str | None = None, density: str | None = None):
         self.spec = spec
         self.pal_name = palette or spec["active_palette"]
+        if self.pal_name not in spec["palettes"]:
+            # 프로파일마다 팔레트가 다르다(house=forest…, dive=dive). 아웃라인이 다른 프로파일의
+            # 팔레트를 적었으면 이 프로파일의 기본으로 간다 — 시리즈 색을 섞지 않는다
+            print(f"  · 팔레트 '{self.pal_name}' 이 이 프로파일에 없다 — '{spec['active_palette']}' 로 빌드")
+            self.pal_name = spec["active_palette"]
         self.base_pal = dict(spec["palettes"][self.pal_name])
         self.colors = derive(self.base_pal, spec)      # 현재 필드의 색
         self.field_inverted = False
@@ -413,12 +476,17 @@ class Deck:
             # editorial 명세는 hex 3개로 못박혀 있다 — 넷째 색을 몰래 들이지 않고 보통 필드로 둔다
             print(f"  · 팔레트 '{self.pal_name}' 에 caution 색이 없다 — tone: caution 무시")
             tone = None
+        tint_only = self.spec["colors"].get("caution_mode") == "tint"
         if tone == "caution":
-            pal = {"ground": mix(cau, pal["ground"], self.spec["colors"].get("caution_tint_mix", 0.94)),
-                   "figure": cau, "accent": cau}
+            ground = mix(cau, pal["ground"], self.spec["colors"].get("caution_tint_mix", 0.94))
+            if tint_only:
+                # 바탕만 물들이고 잉크·강조는 그대로 — Dive 「자주 나는 오류」(FFF9EC 바탕, 글자는 그대로)
+                pal = {**pal, "ground": ground, "paper": pal["ground"]}
+            else:
+                pal = {"ground": ground, "figure": cau, "accent": cau}
         self.tone = tone
         cfg = self.spec
-        if tone == "caution":
+        if tone == "caution" and not tint_only:
             # 주의 잉크(자주)는 기본 잉크(먹)보다 밝다. 같은 비율로 톤을 뽑으면 캡션이
             # 대비 기준 아래로 떨어진다 — 이 필드에서만 램프를 좁힌다. 검사는 derive 가 한다.
             cfg = {**self.spec, "colors": {**self.spec["colors"],
@@ -449,9 +517,12 @@ class Deck:
                                 color=self.c(color), kind=kind, seq=self._seq))
         return sh
 
-    def panel(self, s, x, y, w, h, color="accent_tint", radius=11.5):
+    def panel(self, s, x, y, w, h, color="accent_tint", radius=None):
         """살짝 둥근 채움 패널. 실측 — 반경 5pt, 채움은 accent 를 ground 쪽으로 0.94 섞은 톤.
-        장식이 아니라 한 덩어리를 묶는 그릇이므로 반드시 안에 활자가 들어간다."""
+        장식이 아니라 한 덩어리를 묶는 그릇이므로 반드시 안에 활자가 들어간다.
+        반경을 안 주면 프로파일의 panel_radius 다 — 엔진에 숫자를 박으면 프로파일이 못 바꾼다."""
+        if radius is None:
+            radius = self.spec["shapes"].get("panel_radius", 5)
         sh = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Pt(x), Pt(y), Pt(w), Pt(h))
         try:
             sh.adjustments[0] = min(0.5, radius / max(1e-6, min(w, h)))
@@ -466,8 +537,10 @@ class Deck:
         return sh
 
     def chip(self, s, x, y, w, h, text="", color="accent", text_color="ground",
-             style="small", radius=11.5):
+             style="small", radius=None):
         """번호 칩 / 눈썹 칩. 실측 47.5x23 (번호) · 147.6x30 (눈썹), accent 채움."""
+        if radius is None:
+            radius = self.spec["shapes"].get("chip_radius", self.spec["shapes"].get("panel_radius", 5))
         sh = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Pt(x), Pt(y), Pt(w), Pt(h))
         try:
             sh.adjustments[0] = min(0.5, radius / max(1e-6, min(w, h)))
@@ -684,6 +757,8 @@ class Deck:
         font = self.spec["fonts"][fkey]
         ea = self.spec["fonts"]["body"] if fkey == "mono" else None
         paras = content if isinstance(content, list) else [content]
+        if exact_center and align == "center" and len(paras) == 1:
+            x = x - ink_shift(paras[0], font, st["size"])
 
         box = s.shapes.add_textbox(Pt(x), Pt(y), Pt(w), Pt(h))
         tf = box.text_frame

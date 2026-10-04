@@ -7,3 +7,4 @@ preview/
 .DS_Store
 .baselines/
 .principles/
+references/lesson/*/.run/

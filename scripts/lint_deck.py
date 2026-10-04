@@ -37,7 +37,10 @@ def main(path, spec_path=None):
 
     ST = spec["styles"]
     sizes = {s["size"] for s in ST.values()}
-    track_of = {s["size"]: s["tracking"] for s in ST.values()}
+    # 같은 크기를 둘 이상의 스타일이 쓸 수 있다(dive: small 13pt +35 · code 13pt 0) — 크기마다 허용 집합
+    track_of = {}
+    for s_ in ST.values():
+        track_of.setdefault(s_["size"], set()).add(s_["tracking"])
     COLS = {col_x(n) for n in range(1, 13)}
 
     # ---- SCALE · TRACK · ALIGN · LINES · NO_SHADOW (XML) --------------------
@@ -54,8 +57,8 @@ def main(path, spec_path=None):
             spc = re.search(r'spc="(-?\d+)"', attrs)
             want = track_of.get(pt)
             got = int(spc.group(1)) if spc else 0
-            if want is not None and got != want:
-                fail("TRACK", f"s{i}: {pt}pt 의 자간 {got} != 스타일 값 {want}")
+            if want is not None and got not in want:
+                fail("TRACK", f"s{i}: {pt}pt 의 자간 {got} != 스타일 값 {sorted(want)}")
         if "<a:gradFill" in x:
             fail("HARD", f"s{i}: 그라데이션이 있다")
         for sp in re.findall(r"<p:sp>.*?</p:sp>", x, re.S):
@@ -99,8 +102,11 @@ def main(path, spec_path=None):
                                         "card-", "stair-", "compare-", "nest-",
                                         "node-", "ring-", "code", "gallery-",
                                         "cg-", "explain-", "cells-",
-                                        "pair-", "output")) or \
-                   b["tag"] in ("full-title", "caption", "ledger-index") or \
+                                        "pair-", "output",
+                                        # 수업 흐름 페이지(badge_row·recap·deadline)의 판 안 글과 쪽 번호
+                                        "row-", "recap-", "band", "deadline-", "cell-label",
+                                        "page-number")) or \
+                   b["tag"] in ("full-title", "caption", "ledger-index", "foot", "tail") or \
                    (b["tag"] == "eyebrow" and b["y"] > 300):
                     continue
                 if b["x"] not in COLS and round(b["x"]) not in {round(col_x(n)) + spec["table"]["pad_x"] for n in range(1, 13)} | {round(col_x(n) + span_w(sp) - spec["table"]["pad_x"]) for n in range(1, 13) for sp in (2, 3, 4, 6)} | {58, 72}:
@@ -112,18 +118,24 @@ def main(path, spec_path=None):
                 # image_full 만 예외 — 눈썹이 판 내부(y 340)에 놓인다 (§8.15).
                 ok_y = {(spec.get("rhythm_y") or {}).get("eyebrow_y", 56), 340, 354}
                 # 가운데 정렬은 배지 안 글리프에만 허용한다. 본문은 전부 좌정렬.
-                if b.get("align") == "center" and not b["tag"].startswith(("badge-", "chip-"))\
-                        and b["tag"] not in ("ring-label", "nest-conclusion"):
+                # 위 배지 카드(badge_row)는 배지와 글을 한 덩어리로 가운데 세운다 — Dive topBadgeCard.
+                # 띠·마감 칸·카드 줄 아래 한 줄도 판 가운데 글이다
+                if b.get("align") == "center" and not b["tag"].startswith(
+                        ("badge-", "chip-", "row-", "band", "deadline-chip"))\
+                        and b["tag"] not in ("ring-label", "nest-conclusion", "foot"):
                     fail("ALIGN", f"s{n}: '{b['tag']}' 가운데 정렬 — 본문은 좌정렬이다")
                 if b["tag"] == "eyebrow" and b["y"] not in ok_y:
                     fail("EYEBROW_Y", f"s{n}: 눈썹 라벨 y={b['y']} (56 고정)")
             R = spec.get("rhythm_y")
-            tops = [b["y"] for b in boxes]
-            bottoms = [b["y"] + b["h"] for b in boxes]
+            body = [b for b in boxes if b["tag"] != "page-number"]   # 쪽 번호는 하한 아래가 제자리
+            tops = [b["y"] for b in body]
+            bottoms = [b["y"] + b["h"] for b in body]
             if R:
                 # house 프로파일: 눈썹·제목이 고정 행에 있고, 어떤 요소도
                 # 상단 마진 위나 본문 하한 아래로 나가지 않으면 된다.
-                if min(tops) < R["eyebrow_y"] - 0.5:
+                # 눈썹을 알약으로 그리는 프로파일은 알약이 기준선보다 6pt 위에서 시작한다
+                top_lim = R["eyebrow_y"] - (6 if spec.get("eyebrow_style") == "chip" else 0)
+                if min(tops) < top_lim - 0.5:
                     fail("ANCHOR", f"s{n}: 상단 마진 {R['eyebrow_y']} 위로 나간 요소가 있다")
                 if max(bottoms) > R["content_bottom"] + 0.5:
                     fail("ANCHOR", f"s{n}: 본문 하한 {R['content_bottom']} 아래로 "

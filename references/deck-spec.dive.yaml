@@ -1,0 +1,288 @@
+# ppt-deck 디자인 토큰 — dive 프로파일
+#
+# 「Dive 인공지능의 이해」 2~6차시 시리즈의 디자인이다. 그 덱들은 pptxgenjs 공통 모듈
+# (common.js, 2026-10-01)로 만들어졌고, 값은 거기서 옮겼다:
+#   LAYOUT_WIDE 13.333x7.5in = 960x540pt, 마진 0.85in = 61pt, 모서리 0.16in = 11.5pt(전 도형 하나),
+#   흰 바탕 · 잉크 121821 · 파랑 1B7FD4 · 어두운 장 0E1A2B · 노랑 FFC531(알약·Colab 칸 표시),
+#   제목 38pt Bold, 글자 간격 = 34pt 이상 -0.02em · 15pt 이하 +0.35pt.
+# 판·칸 색은 팔레트를 섞어 만든다 — 실측 EFF4FA=0.93, 17304C=0.79, DCE8F5=0.84 (오차 10 이내).
+# 어두운 장의 회청색 글자(7E93AC·AFC4D8)는 파생으로 정확히 안 나와 가까운 값이 나온다.
+# house(면담·면접 강의자료 forest, 반경 5pt)와 섞어 쓰지 않는다 — 시리즈마다 프로파일 하나.
+
+canvas:
+  width_pt: 960
+  height_pt: 540
+grid:
+  margin_x: 61
+  margin_top: 56
+  margin_bottom: 40
+  columns: 12
+  col_w: 51.5
+  gutter: 20
+rhythm_y:
+  eyebrow_y: 62
+  title_y: 102
+  content_y: 168
+  block_y: 194
+  content_bottom: 492
+palettes:
+  dive:
+    ground: FFFFFF
+    figure: '121821'
+    accent: 1B7FD4
+    dark: 0E1A2B
+    highlight: FFC531
+    caution: FFC531
+active_palette: dive
+colors:
+  tone_ink2: 0.22
+  tone_muted: 0.5
+  tone_faint: 0.68
+  hairline_mix: 0.87
+  accent_tint_mix: 0.93
+  accent_soft_mix: 0.37
+  accent_mid_mix: 0.8
+  accent_pale_mix: 0.84
+  caution_tint_mix: 0.91
+  caution_ink2: 0.12
+  caution_muted: 0.28
+  caution_faint: 0.45
+  min_ratio_body: 4.5
+  min_ratio_caption: 3.0
+  accent_tint_mix_dark: 0.79
+  caution_mode: tint
+styles:
+  hero:
+    font: display
+    size: 58
+    leading: 1.05
+    tracking: -116
+  cover:
+    font: display
+    size: 52
+    leading: 1.15
+    tracking: -104
+  display:
+    font: head
+    size: 44
+    leading: 1.25
+    tracking: -88
+  h1:
+    font: head
+    size: 38
+    leading: 1.2
+    tracking: -76
+  h2:
+    font: head
+    size: 22
+    leading: 1.32
+    tracking: 0
+  lead:
+    font: body
+    size: 17
+    leading: 1.45
+    tracking: 0
+  body:
+    font: body
+    size: 15
+    leading: 1.55
+    tracking: 35
+  small:
+    font: body
+    size: 13
+    leading: 1.55
+    tracking: 35
+  micro:
+    font: label
+    size: 11.5
+    leading: 1.32
+    tracking: 35
+  code:
+    font: mono
+    size: 13
+    leading: 1.62
+    tracking: 0
+style_usage:
+  hero:
+  - data.hero
+  cover:
+  - cover.title
+  - closing.title
+  display:
+  - section.title
+  - statement.text
+  h1:
+  - '*.title'
+  h2:
+  - two_col.subhead
+  - cards.item_title
+  - data.secondary_value
+  lead:
+  - two_col.lead
+  - statement.body
+  body:
+  - '*.body'
+  - table.cell
+  - cards.item_body
+  small:
+  - '*.caption'
+  - table.header_label
+  - data.secondary_label
+  micro:
+  - '*.eyebrow'
+  - '*.runner'
+  - '*.footnote'
+  - page_number
+fonts:
+  display: Pretendard Bold
+  head: Pretendard Bold
+  body: Pretendard
+  label: Pretendard Bold
+  mono: Consolas
+anchors:
+  block_bias: 0.5
+  gap_block: 24
+plates:
+  plate_min_side: 26
+  plate_needs_text: true
+rules:
+  hero_rule_w: 1.5
+  table_rule_w: 0.5
+cards:
+  mode_by_count:
+    2: pair
+    3: ledger
+    4: quad
+    5: dense
+    6: dense
+  gutter_v: 28
+shapes:
+  badge_d: 35
+  badge_d_sub: 24
+  badge_gap: 13
+  part_label_y: 176
+  part_title_y: 212
+  part_rule_gap: 26
+  part_rule_w: 64
+  panel_pad_h: 29.5
+  panel_h: 61
+  panel_radius: 11.5
+  chip_radius: 11.5
+  panel_pad_x: 30
+  panel_pad_y: 19
+  panel_gap: 27.5
+  panel_text_x: 86
+  chip_w: 47.5
+  chip_h: 23
+  eyebrow_chip_h: 30
+  subrow_step: 20
+  subrow_indent: 44.6
+  card_h: 245
+  card_gap: 14.4
+  card_pad: 13
+  card_badge_d: 40
+  chain_indent: 47.5
+  chain_step: 53
+  chain_badge_dx: 24.5
+  chain_panel_text_dx: 49
+  chain_first_gap: 26
+  chain_line_h: 21.6
+  chain_line_w: 1.25
+  chain_num_dx: 33
+  chain_text_dx: 59
+  icon_ratio: 0.46
+  connector_w: 1
+  divider_w: 1
+  divided_gap: 22
+  divided_pad_y: 34
+  code_pad_x: 26
+  code_pad_y: 35
+  code_comment_col: 36
+  cell_h: 28
+  cell_gap: 4
+  chipcell: 43
+  chipcell_gap: 4.3
+  info_pad_bottom: 24
+  info_pad_top_extra: 4
+  info_title_gap: 4
+  info_table_gap: 16
+  info_col_unit: 56
+  qa_img_w: 382
+  qa_img_h: 238
+  qa_glow_d: 338
+  qa_glow_contrast: 1.3
+  qa_label_pad_x: 30
+  qa_label_gap: 20
+  qa_text_gap: 24
+  gallery_gap: 20
+  gallery_img_h: 121
+  kind_chip_w: 125
+  node_d: 23
+  node_year_dy: -50
+  node_title_dy: 28
+  node_desc_dy: 61
+  stair_h: 65
+  stair_step: 72
+  stair_w_min: 0.4
+  stair_w_max: 0.73
+  stair_badge_d: 35
+  stair_pad_x: 13
+  badge_text_gap: 15
+  compare_pad_x: 16
+  nest_pad_x: 16
+  stair_text_pad_r: 15
+  ring_label_dy: 9
+  code_caption_gap: 34
+  compare_h: 212
+  compare_gap: 25
+table:
+  header_h: 28
+  row_h: 32
+  pad_x: 12
+  col_pattern:
+    2:
+    - 6
+    - 6
+    3:
+    - 6
+    - 3
+    - 3
+    4:
+    - 6
+    - 2
+    - 2
+    - 2
+    5:
+    - 4
+    - 2
+    - 2
+    - 2
+    - 2
+density: reading
+density_limits:
+  speaker:
+    bullets: 4
+    bullet_chars: 60
+    table_rows: 6
+  reading:
+    bullets: 7
+    bullet_chars: 120
+    table_rows: 9
+hard_rules:
+- no_shadow
+- no_gradient
+- no_3d
+- no_theme_table_style
+- no_emoji
+- no_decorative_shape
+- no_title_underline
+rhythm:
+  max_same_layout_run: 2
+  max_same_cards_mode_run: 1
+  page_number_from: 2
+eyebrow_style: chip
+eyebrow_chip:
+  fill: accent_tint
+  text: accent
+  fill_inverted: highlight
+  text_inverted: ground

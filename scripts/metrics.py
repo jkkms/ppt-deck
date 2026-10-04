@@ -18,6 +18,7 @@ FONT_DIRS = [os.path.expanduser("~/Library/Fonts"), "/Library/Fonts",
 # deck-spec.yaml의 fonts 값 → 파일명 조각
 WANT = {
     "Pretendard Black": "Pretendard-Black",
+    "Pretendard Bold": "Pretendard-Bold",       # dive 프로파일 — Dive 시리즈가 굵은 제목을 썼다
     "Pretendard SemiBold": "Pretendard-SemiBold",
     "Pretendard Medium": "Pretendard-Medium",
     "Pretendard": "Pretendard-Regular",

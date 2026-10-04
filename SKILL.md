@@ -6,6 +6,10 @@ description: AI가 찍어낸 티가 나지 않는 .pptx 발표자료를 만드�
 
 # ppt-deck — AI 티 안 나는 PPTX 생성기 (v1.0)
 
+> **PPT 를 만드는 도구는 이것 하나다 (2026-10-04 통합).** 예전에 덱마다 따로 두던 pptxgenjs 빌드 폴더
+> (공통 모듈 `common.js` · `mj_deck_lib.js` 등)는 이미 배포한 덱의 기록으로만 남기고 새 덱·수정에 쓰지 않는다. 거기에만 있던 것(Dive 디자인, 수업 흐름 페이지, Colab 연동,
+> 실제 렌더 감사)은 전부 여기로 옮겼다. 강의 아웃라인은 강의 폴더에 두고 이 엔진을 불러 쓴다.
+
 > 출처 계보: `zarazhangrui/frontend-slides`의 방법론(디자인 토큰 선확정 · show-don't-tell · 밀도 모드 · 안티슬롭 규칙)을 HTML이 아닌 **네이티브 .pptx**로 옮긴 것. 애니메이션·웹폰트·반응형은 의도적으로 버렸다.
 
 ## 실행 환경
@@ -28,9 +32,26 @@ PY=${CLAUDE_SKILL_DIR}/.venv/bin/python      # python-pptx · pyyaml · pymupdf 
 | `scripts/humanize_io.py extract\|apply` | 아웃라인 ↔ 윤문 텍스트 왕복 |
 | `scripts/reconcile.py diff\|deploy` | 배포본 대조 · 덮어쓰기 가드 |
 | `scripts/verify_centering.py` | 도형 안 글자 중앙 정렬 전수 측정 |
-| `scripts/render.py out/deck.pptx` | LibreOffice 실제 렌더. 없으면 실패한다(정상) |
+| `scripts/render.py out/deck.pptx [--app keynote\|powerpoint]` | 실제 렌더 → PNG. LibreOffice 가 없으면 앱으로(사용자 허락 후) — `~/Documents/ppqa/` 에서 내보낸다 |
+| `scripts/audit_render.py deck.pptx [--app …\|--pdf …]` | **실제 렌더로 재는 정렬 감사.** 모든 카드의 위/아래 여백 · 배지와 옆글 중심. 어떤 도구로 만든 덱이든 잰다 |
+| `scripts/notebook.py cells.py --out DIR` | 칸 목록 하나 → Colab 노트북 + 실제 실행 결과(`cells.json`, `img/`) |
+| `scripts/lint_pptx_text.py deck.pptx` | 다른 도구로 만든 덱의 문구 검사 |
 
-`references/deck-spec.yaml`이 디자인 토큰 단일 원천, `references/outline.example.yaml`이 아웃라인 문법의 레퍼런스다.
+`references/deck-spec*.yaml`이 디자인 토큰 단일 원천(프로파일마다 하나), `references/outline.example.yaml`(일반)과
+`references/outline.lesson.yaml`(수업 덱)이 아웃라인 문법의 레퍼런스다.
+
+## 프로파일 — 시리즈마다 하나, 섞지 않는다
+
+| 프로파일 | 파일 | 쓰는 덱 | 생김새 |
+| --- | --- | --- | --- |
+| **house** (기본) | `deck-spec.yaml` | 면담·면접 강의자료 계열 | forest 팔레트 · 마진 58 · 제목 31pt SemiBold · 모서리 5pt |
+| **dive** | `deck-spec.dive.yaml` | 「Dive 인공지능의 이해」 같은 수업 덱 | 흰 바탕 · 파랑 + 노랑 강조 · 어두운 장 0E1A2B · 제목 38pt Bold · 모서리 11.5pt · 알약 눈썹 |
+| editorial | `deck-spec.editorial.yaml` | Claude Design 명세 보존본 | 직각 · 큰 활자 |
+
+`build.py outline.yaml --spec references/deck-spec.dive.yaml`. 아웃라인이 다른 프로파일의 팔레트 이름을 적었으면
+그 프로파일의 기본 팔레트로 빌드한다(경고). **같은 시리즈의 덱은 처음 쓴 프로파일을 끝까지 쓴다** — 반경 하나,
+제목 굵기 하나가 시리즈 안에서 바뀌면 학생이 다른 수업으로 느낀다. 9/19 에 두 시리즈의 반경을 하나로 섞었다가
+되돌렸다.
 
 ## 핵심 계약 — 이걸 어기면 스킬을 쓰는 의미가 없다
 
@@ -311,9 +332,10 @@ Pretendard 는 라인박스 중심(0.3555em)과 글리프 잉크 중심(0.3535em
 샤넬의 조언 — 나가기 전에 거울을 보고 액세서리 하나를 뺀다.
 
 **9. 모서리 반경은 하나다.** 도형마다 다른 반경을 주면 한 화면에서 서로 다른 언어를 쓰는 셈이다.
-패널·카드·칩·라벨 전부 `panel_radius`/`chip_radius` 한 값(11.5)을 쓴다 — 사용자 최신 덱
-464개 도형이 크기와 무관하게 이 값 하나였고(adj 를 크기마다 다시 계산해 절대 반경을 유지),
-apple_design 의 "반경 문법을 섞지 마라"와 결론이 같다. `lint_deck` 의 RADIUS 가 막는다.
+패널·카드·칩·라벨 전부 프로파일의 `panel_radius`/`chip_radius` 한 값을 쓴다 — house 5pt(면담·면접 덱 99개),
+dive 11.5pt(Dive 덱 464개, 크기마다 adj 를 다시 계산해 절대 반경을 유지). 값은 시리즈마다 다르고 시리즈 안에서는
+하나다. apple_design 의 "반경 문법을 섞지 마라"와 같은 결론이다. `lint_deck` 의 RADIUS 가 막는다.
+엔진에 반경 숫자를 박지 않는다 — 기본값도 프로파일에서 읽는다.
 알약처럼 보이려고 반경을 높이의 절반으로 올리지 않는다 — 실측도 알약이 아니었다.
 
 **10. 굵기를 늘려 강조하지 마라.** 활자 굵기는 head=SemiBold, body=Regular 둘뿐이다.
@@ -396,6 +418,26 @@ Anthropic pptx 스킬은 **제목 밑 강조선**과 **카드 한쪽 모서리 �
 
 `two_col`·`statement`·`cards`에는 줄이 없다. 눈썹 라벨(`label`)과 번호가 그 자리를 대신한다. **새 레이아웃을 만들 때 "허전하니까 줄 하나"를 넣지 마라.** 허전하면 여백이 잘못된 것이다.
 
+## 수업 흐름 페이지 — 매 차시 같은 뼈대 (Dive 시리즈)
+
+강의 덱은 매 차시 같은 장으로 열고 닫는다. 같은 자리에 같은 모양이 와야 학생이 "지금 어디쯤"인지 안다.
+예제: `references/outline.lesson.yaml`(가상 수업, dive 프로파일).
+
+| 장 | 레이아웃 | 핵심 키 |
+| --- | --- | --- |
+| 학기 지도 「오늘은 N차시」 | `badge_row` | `items[{title, body}]` · `current: N` (지금 칸만 어둡게) |
+| 수업 순서 · 과제 개요 | `badge_row` | `items[{title}]` — 위 배지 + 글을 한 덩어리로 카드 가운데 |
+| 오늘 할 일 · 과제 한 장 | `badge_row` | `items[{title, body, note}]` · `band_top`(맨 위 설명 띠) · `band`(아래 결론 띠) |
+| 자주 나는 오류 | `badge_row` | `tone: caution` · `badges: false` · `items[{tag, title, body}]` · `band` |
+| 생각해 볼 질문 (마무리) | `badge_row` | `items[{title}]` 셋 · `foot` |
+| 지난 차시 · 정리하기 · 생각해 봅시다 | `recap` | 어두운 장. `band`(핵심 문장 — 두꺼운 띠 유지) · `items` 2~4 · `foot`(노란 띠) · `tail` |
+| 제출 마감 | `deadline` | `label` · `date` · `sub` · `chips` · `lines` |
+| 다음 차시 | `statement` | `text` · `body` · `keywords`(알약) |
+| 질문 시간 | `closing` | `label` · `title` · `line` |
+
+모든 장에 쪽 번호(`meta.page_numbers: true`)와 기관 로고(`meta.logo: {image, w}`)를 같은 자리에 붙일 수 있다.
+로고 파일은 기관 것이라 공개 저장소에 넣지 않고 강의 폴더에서 경로로 준다.
+
 ## 실습 노트북과 함께 쓰는 덱 (사용자 원칙 §4-5)
 
 설명은 슬라이드로, 실행은 노트북으로 넘겨 보여 주는 수업일 때.
@@ -409,6 +451,20 @@ Anthropic pptx 스킬은 **제목 밑 강조선**과 **카드 한쪽 모서리 �
   경고 메시지가 출력에 섞이지 않게 코드를 고친다
 - 교재 코드를 바꿨으면 노트북 칸에 이유를 한 줄 적는다
 - 비율을 나눠 보여 주는 띠는 **한 줄로 이어 붙인다.** 두 상자로 떼면 아래 상자들과 좌우 끝이 어긋나 보인다
+
+```bash
+$PY scripts/notebook.py 강의폴더/cells3.py --out 강의폴더/nb3        # 1) 노트북 조립 + 이 맥에서 실행
+$PY scripts/build.py 강의폴더/outline3.yaml --spec references/deck-spec.dive.yaml   # 2) meta.cells 로 채움
+$PY scripts/notebook.py 강의폴더/cells3.py --out 강의폴더/nb3        # 3) 칸 제목에 「PPT n쪽」
+```
+
+- 아웃라인: `meta.cells: nb3/cells.json`, 슬라이드에 `cell: 7` — 코드가 채워지고 판 오른쪽 위에 `Colab 7번 칸`.
+  `with_output: true` 면 실행 결과까지, `with_image: true` 면 그 칸이 그린 그림(`image_split` 등)
+- 빌드가 `nb3/cellpages.json`(칸 → 쪽)을 남기고, 3)이 그걸 읽는다
+- 실행은 스킬 가상환경의 기본 커널로 한다. 수업 코드가 쓰는 패키지(sklearn·pandas …)는
+  `$PY -m pip install …` 로 거기에 깐다. **전역 Jupyter 커널을 새로 등록하지 않는다** — 다른 세션의 임시 폴더를
+  가리키던 커널(`jrk`)이 그 세션이 끝나며 깨졌다
+- 칸이 오류를 내거나 경고(stderr)를 찍으면 멈춘다. 경고가 학생 화면 출력에 섞이지 않게 코드를 고친다
 
 ## 덱 전용 레이아웃 얹기 (확장)
 
@@ -457,7 +513,14 @@ $PY ${CLAUDE_SKILL_DIR}/scripts/validate.py out/deck.pptx
 
 **이 미리보기의 한계를 정확히 알고 말하라.** 줄바꿈을 빌더와 같은 메트릭으로 계산하므로 **빌더가 놓친 넘침은 여기서도 안 보인다.** 커닝·합자·PowerPoint 고유의 줄바꿈 규칙도 재현하지 않는다. 구성·균형·색·여백은 신뢰할 수 있고, 최종 확인은 PowerPoint에서 여는 것이다.
 
-`render.py`(LibreOffice)는 진짜 렌더가 필요할 때만. `--allow-powerpoint`는 **앱이 뜨고 macOS 자동화 권한을 반복 요구하므로 사용자가 명시적으로 허락했을 때만** 쓴다.
+`render.py`(LibreOffice)는 진짜 렌더가 필요할 때만. `--app keynote|powerpoint`는 **앱이 뜨고 macOS 자동화 권한을 요구하므로 사용자가 명시적으로 허락했을 때만** 쓴다.
+
+**실제 렌더 감사 — `audit_render.py`.** `verify_centering.py` 는 우리 래스터로 잰다. 이건 앱이 실제로 그린 PDF 를 잰다.
+두 옛 감사(Dive `audit.py`, 면접 덱 `audit_real_all.py`)를 합친 것이고, 같은 렌더에서 판정이 같다
+(Dive 6차시 PowerPoint 렌더: 상자 101개 중 9 · 소집면접01 Keynote 렌더: 49개 중 0).
+- 카드 안 사진·작은 판은 선언 사각형을 내용으로 본다(밝은 사진이 작게 잡히는 것 방지). 코드 판의 `Colab N번 칸` 은 뺀다
+- 배지는 바로 오른쪽 글(같은 카드 안)의 첫 줄과 중심을 맞춘다. 글 위에 얹힌 배지는 카드 검사가 잰다
+- 의도한 비대칭(원칙 §4-2 카드 위 +0.05")은 `--top-extra 0.055`
 
 **PDF 로 뽑을 때(Keynote·PowerPoint)** — 이 맥에는 LibreOffice 가 없다.
 - 두 앱은 샌드박스라 `~/Downloads`·iCloud Drive·임시 폴더(스크래치패드 포함)를 못 읽거나 못 쓴다.

@@ -1,0 +1,131 @@
+# 수업 덱 예제 — 매 차시 같은 뼈대로 열고 닫는 강의 덱 (Dive 시리즈 구성)
+# 빌드:  build.py references/outline.lesson.yaml --spec references/deck-spec.dive.yaml
+# 노트북: notebook.py references/lesson/cells2.py --out references/lesson/nb2   (빌드 전에 한 번, 빌드 후에 한 번)
+# 가상 수업이다. 실제 강의 아웃라인은 강의 폴더에 두고 공개 저장소에 올리지 않는다.
+meta:
+  density: speaker
+  page_numbers: true
+  cells: lesson/nb2/cells.json        # notebook.py 가 노트북을 실행해 만든 코드·출력
+  # logo: {image: /path/to/logo.png, w: 100}   # 기관 로고는 강의 폴더에서 경로로 준다
+
+slides:
+  - layout: cover
+    eyebrow: "데이터 첫걸음"
+    title: "배열로 한꺼번에\n계산하기"
+    meta: ["2차시 · 10월 11일", "온라인 튜터링"]
+
+  - layout: badge_row
+    eyebrow: "한 학기"
+    title: "오늘은 2차시"
+    current: 2
+    items:
+      - {title: "파이썬과\n친해지기", body: "변수 · 조건 · 반복"}
+      - {title: "배열로\n계산하기", body: "NumPy · 그래프"}
+      - {title: "표로\n정리하기", body: "Pandas · 필터"}
+      - {title: "그림으로\n보여 주기", body: "시각화 · 해석"}
+
+  - layout: badge_row
+    eyebrow: "오늘"
+    title: "수업 순서"
+    items:
+      - {title: "지난 차시\n되짚기"}
+      - {title: "배열\n만들기"}
+      - {title: "한꺼번에\n계산하기"}
+      - {title: "그림으로\n보기"}
+      - {title: "과제\n안내"}
+
+  - layout: recap
+    eyebrow: "지난 차시"
+    title: "파이썬과 친해지기"
+    band: "같은 일을 여러 번 할 때는 반복문에 맡긴다"
+    items:
+      - {title: "변수", body: "값에 이름을 붙여 다시 쓴다"}
+      - {title: "조건", body: "if 로 갈림길을 만든다"}
+      - {title: "반복", body: "for 로 같은 일을 되풀이한다"}
+
+  - layout: section
+    part: "PART 1"
+    title: "배열 만들기"
+
+  - layout: code_explain
+    eyebrow: "배열"
+    title: "일주일 판매량을 배열로"
+    kind: "함께 해 봅시다"
+    cell: 1
+    with_output: true
+    point: "칸마다 두 배"
+    explain: "반복문 없이 배열 전체에 같은 계산을 한 번에 건다."
+
+  - layout: code_explain
+    eyebrow: "배열"
+    title: "평균과 가장 많이 판 날"
+    cell: 2
+    with_output: true
+    point: "argmax 는 위치를 돌려준다"
+    explain: "값이 아니라 몇 번째 칸인지를 준다. 0 이 월요일이다."
+
+  - layout: image_split
+    eyebrow: "그래프"
+    title: "꺾은선으로 그려 보기"
+    cell: 3
+    with_image: true
+    fit: contain
+    bullets: ["노트북이 그린 그림을 그대로 쓴다. 학생 화면과 같아야 한다."]
+    source: "노트북 3번 칸 실행 결과"
+
+  - layout: badge_row
+    eyebrow: "자주 나는 오류"
+    title: "이럴 때는 이렇게"
+    tone: caution
+    badges: false
+    items:
+      - {tag: "NameError", title: "np 를 못 찾는다", body: "준비 칸을 먼저 실행한다"}
+      - {tag: "ValueError", title: "길이가 다르다", body: "두 배열의 칸 수를 맞춘다"}
+      - {tag: "그래프 글자 깨짐", title: "한글이 네모로", body: "준비 칸의 글꼴 설정을 다시 실행한다"}
+    band: "오류 메시지의 마지막 줄부터 읽는다"
+
+  - layout: badge_row
+    eyebrow: "마무리"
+    title: "생각해 볼 질문"
+    items:
+      - {title: "반복문과 배열 계산은\n언제 답이 달라질까"}
+      - {title: "평균 하나로\n일주일을 설명할 수 있을까"}
+      - {title: "그래프의 세로축을 바꾸면\n인상이 어떻게 바뀔까"}
+    foot: "정답이 있는 질문은 아니에요. 과제를 하다가 한 번씩 떠올려 보세요."
+
+  - layout: recap
+    eyebrow: "정리하기"
+    title: "오늘 한 것"
+    band: "배열은 칸 전체에 같은 계산을 한 번에 건다"
+    items:
+      - {title: "만들기", body: "np.array 로 묶는다"}
+      - {title: "계산하기", body: "mean · argmax 로 요약한다"}
+      - {title: "보기", body: "plot 으로 흐름을 본다"}
+    foot: "과제는 오늘 칸을 그대로 고쳐 쓰면 된다"
+
+  - layout: badge_row
+    eyebrow: "과제"
+    title: "판매량 분석"
+    band_top: "지난달 판매량으로 오늘 한 세 가지를 해 본다"
+    items:
+      - {badge: "1", title: "배열 만들기", body: "30일 판매량을 배열로"}
+      - {badge: "2", title: "요약하기", body: "평균과 가장 많이 판 날"}
+      - {badge: "3", title: "그려 보기", body: "꺾은선 하나와 한 줄 해석"}
+
+  - layout: deadline
+    label: "제출 마감"
+    date: "10월 17일 금요일"
+    sub: "밤 11시 59분까지"
+    chips: ["학습 게시판 ‘과제’", "노트북 파일 하나로"]
+    lines: ["실행 결과가 보이게 저장한 뒤 올린다."]
+
+  - layout: statement
+    eyebrow: "다음 차시"
+    text: "3차시 · 표로 정리하기"
+    body: "배열에 이름표를 붙이면 표가 된다. 오늘 만든 판매량을 요일별 표로 바꿔 본다."
+    keywords: ["Pandas", "DataFrame", "필터"]
+
+  - layout: closing
+    label: "질문 시간"
+    title: "무엇이든 물어보세요"
+    line: "오늘 함께해 주어 고맙습니다."

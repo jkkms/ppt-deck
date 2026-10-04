@@ -1,0 +1,39 @@
+{
+ "1": {
+  "title": "일주일 판매량을 배열로",
+  "code": [
+   "import numpy as np",
+   "",
+   "# 월요일부터 일요일까지",
+   "sales = np.array([12, 15, 9, 20, 18, 25, 30])",
+   "print(sales * 2)   # 칸마다 두 배"
+  ],
+  "out": [
+   "[24 30 18 40 36 50 60]"
+  ],
+  "img": null
+ },
+ "2": {
+  "title": "평균과 가장 많이 판 날",
+  "code": [
+   "print(sales.mean().round(1))",
+   "print(sales.argmax())   # 0 = 월요일"
+  ],
+  "out": [
+   "18.4",
+   "6"
+  ],
+  "img": null
+ },
+ "3": {
+  "title": "꺾은선으로 그려 보기",
+  "code": [
+   "days = ['월', '화', '수', '목', '금', '토', '일']",
+   "plt.plot(days, sales, marker='o')",
+   "plt.ylabel('판매량 (개)')",
+   "plt.show()"
+  ],
+  "out": [],
+  "img": "img/colab_3.png"
+ }
+}

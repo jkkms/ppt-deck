@@ -52,6 +52,32 @@ AI로 만든 PPT는 내용과 무관하게 알아봅니다. 원인은 대부분 
 
 <br>
 
+## 프로파일 — 덱 시리즈마다 하나
+
+| 프로파일 | 생김새 | 쓰는 곳 |
+| --- | --- | --- |
+| `house` (기본) | forest 팔레트 · 제목 31pt · 모서리 5pt | 강의자료·면담 자료 계열 |
+| `dive` | 흰 바탕 · 파랑 + 노랑 강조 · 어두운 장 · 제목 38pt Bold · 모서리 11.5pt · 알약 눈썹 | 매 차시 같은 뼈대로 여닫는 수업 덱 |
+| `editorial` | 직각 · 큰 활자 | 디자인 명세 보존본 |
+
+`build.py outline.yaml --spec references/deck-spec.dive.yaml`. 시리즈 안에서는 프로파일을 바꾸지 않는다 —
+반경 하나, 제목 굵기 하나가 바뀌면 다른 수업처럼 보인다.
+
+### 수업 덱 — 매 차시 같은 뼈대
+
+<img src="docs/lesson-dive.png" width="880" alt="dive 프로파일 수업 덱">
+
+학기 지도(지금 차시만 어둡게) · 지난 차시 되짚기 · 실습 코드(노트북 칸 번호) · 자주 나는 오류(바탕까지 바뀐다) ·
+정리하기 · 제출 마감. `badge_row` · `recap` · `deadline` 세 레이아웃이 수업 흐름 페이지를 맡는다.
+예제는 [`references/outline.lesson.yaml`](references/outline.lesson.yaml) (가상 수업).
+
+**실습 노트북과 한 원본으로.** 칸 목록 하나(`cells.py`)에서 `notebook.py` 가 Colab 노트북을 만들고 이 맥에서
+실제로 실행해 코드·출력·그림을 저장한다. 슬라이드는 `cell: 7` 한 줄로 그 칸의 코드와 결과를 가져오고, 빌드가 남긴
+칸 → 쪽 표로 노트북 칸 제목에 「PPT n쪽」이 들어간다. 숫자를 슬라이드에 손으로 옮겨 적지 않는다.
+
+**실제 렌더 감사.** `audit_render.py` 가 PowerPoint·Keynote·LibreOffice 가 그린 PDF 에서 모든 카드의 위/아래
+여백과 배지 정렬을 잰다 — 어떤 도구로 만든 덱이든.
+
 ## 레이아웃 11종
 
 <table>

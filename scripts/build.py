@@ -7,7 +7,7 @@
 사용:  build.py outline.yaml [-o out/deck.pptx] [--spec other.yaml] [--embed-fonts]
 """
 from __future__ import annotations
-import argparse, os, sys
+import argparse, json, os, sys
 
 import yaml
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -86,8 +86,13 @@ class L:
                                d.spec["fonts"]["body"]) * 0
                 w = block_w(sl["eyebrow"], d.spec["styles"]["small"],
                             d.spec["fonts"]["body"]) + 36
+                # 알약 색은 프로파일이 정한다 — Dive 는 밝은 장 연파랑 바탕에 파랑 글자, 어두운 장은 노랑
+                ec = d.spec.get("eyebrow_chip") or {}
+                inv = getattr(d, "field_inverted", False)
+                fill = ec.get("fill_inverted" if inv else "fill", "accent")
+                tc = ec.get("text_inverted" if inv else "text", "ground")
                 d.chip(s, X, self.eyebrow_y - 6, w, SH["eyebrow_chip_h"],
-                       sl["eyebrow"], color="accent", text_color="ground", style="small")
+                       sl["eyebrow"], color=fill, text_color=tc, style="small")
             else:
                 d.text(s, "micro", X, self.eyebrow_y, span_w(span), 15,
                        sl["eyebrow"], color="accent", tag="eyebrow")
@@ -186,9 +191,9 @@ def _closing_qa(d, s, g, sl):
     if label:
         pw = block_w(label, st_s, d.spec["fonts"]["body"]) + 2 * SH["qa_label_pad_x"]
         # 알약 글자색은 대비로 고른다 — 반전 필드에서 ground 는 어둡고 accent 도 어두울 수 있다
-        tc = max(("ground", "figure"), key=lambda k: contrast(d.c(k), d.c("accent")))
-        # 알약 라벨도 같은 반경이다 — 실측 108x30.2 의 반경이 11.5 로, 진짜 알약(15.1)이 아니었다
-        d.chip(s, col_x(1), top, pw, ph, label, color="accent", text_color=tc,
+        # 둘째 강조색(highlight)이 있으면 그것 — Dive 질문 시간은 노란 알약에 어두운 글자였다. 없으면 accent
+        tc = max(("ground", "figure"), key=lambda k: contrast(d.c(k), d.c("highlight")))
+        d.chip(s, col_x(1), top, pw, ph, label, color="highlight", text_color=tc,
                style="small", radius=SH["chip_radius"])
     d.text(s, "cover", col_x(1), top + ph + gap, tw, th, title, tag="title")
     # 맺음말 한 줄은 본문 바닥선에 — 덩어리에 붙이지 않는다
@@ -249,6 +254,15 @@ def statement(d, s, m, sl):
     if bh_:
         d.text(s, "lead", col_x(1), y + th + g.gap, span_w(7), bh_, body,
                color="ink2", tag="statement-body")
+    kw = [str(k) for k in (sl.get("keywords") or [])]
+    if kw:                          # 다음 차시처럼 다룰 낱말을 알약으로 (Dive P_next)
+        SH = d.spec["shapes"]
+        ky = y + th + (g.gap + bh_ if bh_ else 0) + 26
+        x = col_x(1)
+        for k in kw:
+            w = block_w(k, d.spec["styles"]["small"], d.spec["fonts"]["body"]) + 36
+            d.chip(s, x, ky, w, SH["eyebrow_chip_h"], k, color="accent_tint", text_color="accent")
+            x += w + 12
 
 
 def two_col(d, s, m, sl):
@@ -691,7 +705,10 @@ def nest(d, s, m, sl):
         raise SystemExit("nest 는 고리가 정확히 3개여야 한다.")
     lw = span_w(6)
     ox, oy = col_x(1) + 18, g.block
-    ow, oh = lw - 36, 277.0
+    # 남은 높이에 맞춘다 — 본문 시작이 아래인 프로파일(dive 194)에서 고정 277·80 이면 결론 띠가 하한을 넘었다
+    avail = (d.spec.get("rhythm_y") or {}).get("content_bottom", 495) - g.block
+    concl_h = 9 + 12 + 40 if sl.get("conclusion") else 0   # 패널 간격 9 + 띄움 12 + 띠 40 (그리는 식과 같게)
+    ow, oh = lw - 36, min(277.0, avail)
     tones = ["accent_pale", "accent_mid", "accent"]
     for k in range(3):
         f = k / 3.0
@@ -705,10 +722,11 @@ def nest(d, s, m, sl):
                align="center", color="ground" if k == 2 else "figure", tag="ring-label")
 
     rx, rw = col_x(7), span_w(6)
-    phh = 80
-    stack = 3 * phh + 2 * 9 + (12 + 40 if sl.get("conclusion") else 0)
+    phh = min(80.0, (avail - 2 * 9 - concl_h) / 3)
+    stack = 3 * phh + 2 * 9 + concl_h
     diag_h = oy + 2 * 42 + oh * 0.39 - g.block          # 왼쪽 그림의 실제 높이
     pyy = g.block + max(0.0, (max(diag_h, oh) - stack) / 2)
+    pyy = min(pyy, g.block + avail - stack)            # 그림에 맞춰 내리다 하한을 넘지 않게
     for k, r in enumerate(rings):
         y = pyy + k * (phh + 9)
         d.panel(s, rx, y, rw, phh, color="accent_tint", radius=SH["panel_radius"])
@@ -720,9 +738,217 @@ def nest(d, s, m, sl):
     if sl.get("conclusion"):
         cy = pyy + 3 * (phh + 9) + 12
         d.panel(s, rx, cy, rw, 40, color="figure", radius=SH["panel_radius"])
-        d.text(s, "lead", rx, cy + 10, rw, 22, sl["conclusion"], align="center",
-               color="ground", font_key="head", tag="nest-conclusion")
+        d.text(s, "lead", rx, cy, rw, 40, sl["conclusion"], align="center", anchor="middle",
+               exact_center=True, color="ground", font_key="head", tag="nest-conclusion")
 
+
+
+# ================================================================= 수업 흐름 페이지
+# Dive 「인공지능의 이해」 2~6차시(pptxgenjs common.js)의 P_* 페이지를 일반 레이아웃으로 옮겼다.
+# 수업 덱은 매 차시 같은 뼈대로 열고 닫는다 — 학기 지도 → 수업 순서 → … → 정리 → 과제 → 마감 → 질문.
+# 같은 자리에 같은 모양이 와야 학생이 "지금 어디쯤"인지 안다.
+
+def _band(d, s, x, y, w, text, *, fill, color, style="lead", h=None):
+    """한 줄 띠. 높이 = 줄 높이 + 여백(원칙 §4-3). 크고 굵은 핵심 문장 띠는 h 를 직접 준다."""
+    SH = d.spec["shapes"]
+    st = d.spec["styles"][style]
+    h = h or round(st["size"] * st["leading"] + SH["panel_pad_h"])
+    d.panel(s, x, y, w, h, color=fill)
+    d.text(s, style, x, y, w, h, text, align="center", anchor="middle", exact_center=True,
+           color=color, font_key="head", tag="band")
+    return h
+
+
+def badge_row(d, s, m, sl):
+    """위 배지 카드 줄. 배지와 글을 한 덩어리로 묶어 카드 세로 가운데에 둔다.
+    형제 카드는 같은 높이(가장 큰 내용 기준). Dive P_map · P_order · P_today · P_task · P_closeq · P_pitfall.
+
+      items:   [{title, body, note, badge, tag}] 2~6개. badge 를 안 주면 1,2,3…
+      current: N        학기 지도처럼 지금 칸 하나만 어둡게 (1부터)
+      badges:  false    배지 없이 tag(작은 머리말)만 — 「자주 나는 오류」 카드
+      band_top: "…"     카드 위 설명 띠 (과제 한 장)
+      band: "…"         카드 아래 결론 띠 · foot: "…" 아래 한 줄
+    """
+    g = L(d)
+    SH = d.spec["shapes"]
+    g.head(s, sl, span=9 if sl.get("kind") else 12)
+    items = sl.get("items") or []
+    n = len(items)
+    if not 2 <= n <= 6:
+        raise SystemExit(f"badge_row 는 항목 2~6개 (받은 값 {n})")
+    W = span_w(12)
+    gap = 20 if n <= 4 else 12
+    cw = (W - gap * (n - 1)) / n
+    px = 14 if n >= 5 else 22                       # 카드 안 좌우 (실측 0.12~0.2in)
+    tw = cw - 2 * px
+    show_badge = sl.get("badges", True)
+    bd = SH["badge_d"]
+    bgap = 20                                        # 배지 → 제목 (실측 0.3in)
+    inv = getattr(d, "field_inverted", False)
+    cur = sl.get("current")
+
+    def blk(it):
+        h = (bd + bgap) if show_badge else 0
+        if it.get("tag"):
+            h += g.bh(it["tag"], tw, "small") + 6
+        h += g.bh(it.get("title", ""), tw, "h2")
+        if it.get("body"):
+            h += 6 + g.bh(it["body"], tw, "small")
+        if it.get("note"):
+            h += 10 + g.bh(it["note"], tw, "small")
+        return h
+    pad_y = 30
+    ch = max(blk(it) for it in items) + 2 * pad_y
+    vgap = 24
+    top_h = 66 if sl.get("band_top") else 0         # 과제 설명 띠 0.92in (원칙 §4-3)
+    st_l = d.spec["styles"]["lead"]
+    band_h = round(st_l["size"] * st_l["leading"] + SH["panel_pad_h"]) if sl.get("band") else 0
+    foot_h = g.bh(sl["foot"], W, "lead") if sl.get("foot") else 0
+    total = (top_h + vgap if top_h else 0) + ch + (vgap + band_h if band_h else 0) + \
+            (vgap + foot_h if foot_h else 0)
+    y = resolve_y(total, d.spec, top=g.block)
+    if top_h:
+        d.panel(s, col_x(1), y, W, top_h, color="accent_tint" if inv else "dark")
+        d.text(s, "lead", col_x(1) + SH["panel_pad_x"], y, W - 2 * SH["panel_pad_x"], top_h,
+               sl["band_top"], anchor="middle", color="figure" if inv else "ground",
+               font_key="head", tag="band-top")
+        y += top_h + vgap
+    card_fill = "paper" if d.tone == "caution" else "accent_tint"
+    for i, it in enumerate(items):
+        x = col_x(1) + i * (cw + gap)
+        on = cur == i + 1
+        d.panel(s, x, y, cw, ch, color="dark" if on and not inv else card_fill)
+        cy = y + (ch - blk(it)) / 2
+        if show_badge:
+            d.badge(s, x + cw / 2, cy + bd / 2, bd, "highlight" if on else "accent",
+                    glyph=str(it.get("badge", i + 1)),
+                    glyph_color="figure" if on and not inv else "ground", style="lead")
+            cy += bd + bgap
+        tcol = "ground" if on and not inv else "figure"
+        if it.get("tag"):
+            th_ = g.bh(it["tag"], tw, "small")
+            d.text(s, "small", x + px, cy, tw, th_, it["tag"], align="center",
+                   color="accent", font_key="head", tag="row-tag")
+            cy += th_ + 6
+        th_ = g.bh(it.get("title", ""), tw, "h2")
+        d.text(s, "h2", x + px, cy, tw, th_, it.get("title", ""), align="center",
+               color=tcol, tag="row-title")
+        cy += th_
+        if it.get("body"):
+            bh_ = g.bh(it["body"], tw, "small")
+            d.text(s, "small", x + px, cy + 6, tw, bh_, it["body"], align="center",
+                   color="faint" if on and not inv else "muted", tag="row-body")
+            cy += 6 + bh_
+        if it.get("note"):
+            nh = g.bh(it["note"], tw, "small")
+            d.text(s, "small", x + px, cy + 10, tw, nh, it["note"], align="center",
+                   color="highlight" if on else "accent", font_key="head", tag="row-note")
+    y += ch
+    if band_h:
+        y += vgap
+        _band(d, s, col_x(1), y, W, sl["band"], fill="accent_tint" if inv else "dark",
+              color="highlight")
+        y += band_h
+    if foot_h:
+        d.text(s, "lead", col_x(1), y + vgap, W, foot_h, sl["foot"], align="center",
+               color="muted", tag="foot")
+
+
+def recap(d, s, m, sl):
+    """어두운 장 — 핵심 문장 띠 하나 + 2~4칸 + 아래 띠. 지난 차시 되짚기 · 정리하기 · 생각해 봅시다.
+    Dive P_last · P_summary · P_question. 크고 굵은 핵심 문장 띠는 얇게 줄이지 않는다(원칙 §4-3 예외).
+
+      band: "…"   핵심 문장 (없으면 생략 — 생각해 봅시다는 제목이 곧 질문이다)
+      items: [{title, body}]   foot: "…" 노란 띠 · tail: "…" 아래 한 줄
+    """
+    g = L(d)
+    g.head(s, sl, span=12)
+    W = span_w(12)
+    items = (sl.get("items") or [])[:4]
+    n = len(items)
+    vgap = 22
+    band_h = 80 if sl.get("band") else 0
+    gap = 20
+    cw = (W - gap * (n - 1)) / n if n else W
+    pad = d.spec["shapes"]["panel_pad_x"]
+    tw = cw - 2 * pad
+
+    def blk(it):
+        h = g.bh(it.get("title", ""), tw, "lead")
+        if it.get("body"):
+            h += 8 + g.bh(it["body"], tw, "small")
+        return h
+    ch = (max(blk(it) for it in items) + 2 * 26) if n else 0
+    st_l = d.spec["styles"]["lead"]
+    foot_h = round(st_l["size"] * st_l["leading"] + d.spec["shapes"]["panel_pad_h"]) if sl.get("foot") else 0
+    tail_h = g.bh(sl["tail"], W, "lead") if sl.get("tail") else 0
+    total = band_h + (vgap if band_h and n else 0) + ch + (vgap + foot_h if foot_h else 0) + \
+            (vgap + tail_h if tail_h else 0)
+    y = resolve_y(total, d.spec, top=g.block)
+    if band_h:
+        _band(d, s, col_x(1), y, W, sl["band"], fill="accent_tint", color="highlight",
+              style="h2", h=band_h)
+        y += band_h + (vgap if n else 0)
+    for i, it in enumerate(items):
+        x = col_x(1) + i * (cw + gap)
+        d.panel(s, x, y, cw, ch, color="accent_tint")
+        cy = y + (ch - blk(it)) / 2
+        th_ = g.bh(it.get("title", ""), tw, "lead")
+        d.text(s, "lead", x + pad, cy, tw, th_, it.get("title", ""), color="figure",
+               font_key="head", tag="recap-title")
+        if it.get("body"):
+            d.text(s, "small", x + pad, cy + th_ + 8, tw, g.bh(it["body"], tw, "small"),
+                   it["body"], color="muted", tag="recap-body")
+    y += ch
+    if foot_h:
+        y += vgap
+        _band(d, s, col_x(1), y, W, sl["foot"], fill="highlight", color="ground")
+        y += foot_h
+    if tail_h:
+        d.text(s, "lead", col_x(1), y + vgap, W, tail_h, sl["tail"], color="muted", tag="tail")
+
+
+def deadline(d, s, m, sl):
+    """제출 마감. 어두운 장 — 날짜를 가장 크게, 제출처·형식은 칸으로, 안내는 한두 줄.
+    Dive P_deadline.  date · sub · chips: ["LMS ‘과제 및 평가’", "zip 하나로"] · lines: [...]"""
+    g = L(d)
+    SH = d.spec["shapes"]
+    W = span_w(12)
+    hero_h = g.bh(sl.get("date", ""), W, "hero")
+    sub_h = g.bh(sl["sub"], W, "lead") if sl.get("sub") else 0
+    chips = sl.get("chips") or []
+    st_l = d.spec["styles"]["lead"]
+    chip_h = round(st_l["size"] * st_l["leading"] + SH["panel_pad_h"]) if chips else 0
+    lines = [str(x) for x in (sl.get("lines") or [])]
+    lines_h = g.bh("\n".join(lines), W, "lead") if lines else 0
+    eb_h = SH["eyebrow_chip_h"] + 18 if sl.get("label") else 0
+    total = eb_h + hero_h + (8 + sub_h if sub_h else 0) + (28 + chip_h if chip_h else 0) + \
+            (22 + lines_h if lines_h else 0)
+    y = resolve_y(total, d.spec, top=g.top)
+    if sl.get("label"):
+        lab = sl["label"]
+        pw = block_w(lab, d.spec["styles"]["small"], d.spec["fonts"]["body"]) + 2 * SH["qa_label_pad_x"]
+        tc = max(("ground", "figure"), key=lambda k: contrast(d.c(k), d.c("highlight")))
+        d.chip(s, col_x(1), y, pw, SH["eyebrow_chip_h"], lab, color="highlight", text_color=tc)
+        y += eb_h
+    d.text(s, "hero", col_x(1), y, W, hero_h, sl.get("date", ""), tag="deadline-date")
+    y += hero_h
+    if sub_h:
+        d.text(s, "lead", col_x(1), y + 8, W, sub_h, sl["sub"], color="muted", tag="deadline-sub")
+        y += 8 + sub_h
+    if chips:
+        y += 28
+        x = col_x(1)
+        for k, c in enumerate(chips):
+            cw = block_w(str(c), st_l, d.spec["fonts"]["head"]) + 2 * SH["panel_pad_x"]
+            d.panel(s, x, y, cw, chip_h, color="accent_tint")
+            d.text(s, "lead", x, y, cw, chip_h, str(c), align="center", anchor="middle",
+                   exact_center=True, color="highlight" if k == 0 else "figure",
+                   font_key="head", tag="deadline-chip")
+            x += cw + 16
+        y += chip_h
+    if lines:
+        d.text(s, "lead", col_x(1), y + 22, W, lines_h, lines, color="muted", tag="deadline-lines")
 
 def dw(t: str) -> int:
     """표시 폭. 한글·전각은 두 칸으로 센다 — 주석 칸을 맞추려면 이게 있어야 한다."""
@@ -732,6 +958,16 @@ def dw(t: str) -> int:
                    or "\u3130" <= ch <= "\u318f" or "\uac00" <= ch <= "\ud7af"
                    or "\uff00" <= ch <= "\uff60") else 1
     return n
+
+
+def _cell_label(d, s, sl, x, y, w):
+    """노트북 칸 번호를 코드 판 오른쪽 위에 — 학생이 화면을 넘겨 같은 칸을 찾는다 (원칙 §4-5)."""
+    if sl.get("cell") is None:
+        return
+    lab = sl.get("cell_label") or f"Colab {sl['cell']}번 칸"
+    d.text(s, "micro", x + w - 180 - 14, y + 8, 180, 18, lab, align="right",
+           color="highlight", font_key="head", tag="cell-label")
+    d.cell_pages[str(sl["cell"])] = d.cell_pages.get(str(sl["cell"]), d._slide_i)
 
 
 def code(d, s, m, sl):
@@ -773,7 +1009,8 @@ def code(d, s, m, sl):
         warn(f"slide {d._slide_i}: 코드가 패널을 넘는다 ({widest:.0f}pt > {inner:.0f}pt) "
              f"— 주석 칸을 줄이거나 줄을 의도적으로 나눠라")
     ch = len(lines) * st["size"] * st["leading"] + SH["code_pad_y"] * 2
-    d.panel(s, col_x(1), y, pw, ch, color="figure", radius=SH["panel_radius"])
+    d.panel(s, col_x(1), y, pw, ch, color="dark", radius=SH["panel_radius"])
+    _cell_label(d, s, sl, col_x(1), y, pw)
     d.text(s, "code", col_x(1) + SH["code_pad_x"], y + SH["code_pad_y"], inner,
            ch - SH["code_pad_y"] * 2, lines, color="ground", anchor="middle",
            accent_paras=tuple(i for i, l in enumerate(lines) if l.lstrip().startswith("#")),
@@ -837,7 +1074,8 @@ def code_explain(d, s, m, sl):
     below = (34 + cs) if (cells or cells_r) else 0
     # 본문이 영역을 다 채우지 않으면 위로 몰지 않고 가운데에 (원칙 §4 두 칸 배치)
     y = resolve_y(ph + below, d.spec, top=g.block)
-    d.panel(s, cx, y, cw, ph, color="figure", radius=SH["panel_radius"])
+    d.panel(s, cx, y, cw, ph, color="dark", radius=SH["panel_radius"])
+    _cell_label(d, s, sl, cx, y, cw)
     top = y + (ph - inner) / 2
     d.text(s, "code", cx + SH["code_pad_x"], top, cw - SH["code_pad_x"] * 2, code_h, lines,
            color="ground", accent_paras=tuple(i for i, l in enumerate(lines) if l.lstrip().startswith("#")),
@@ -1160,8 +1398,32 @@ LAYOUTS = {"cover": cover, "closing": closing, "section": section, "chain": chai
            "code": code, "code_explain": code_explain, "divided_pair": divided_pair,
            "cellgrid": cellgrid, "gallery": gallery,
            "data": data, "quote": quote, "table": table,
-           "image_split": image_split, "image_full": image_full}
-INVERTED = {"section", "closing"}
+           "image_split": image_split, "image_full": image_full,
+           "badge_row": badge_row, "recap": recap, "deadline": deadline}
+INVERTED = {"section", "closing", "recap", "deadline"}
+
+
+def _chrome(d, s, m, sl, i):
+    """모든 장에 같은 자리로 붙는 것 — 쪽 번호와 기관 로고 (Dive 시리즈 실측).
+    meta.page_numbers: true · meta.logo: {image, w}. 표지에는 붙이지 않는다."""
+    if sl.get("layout") == "cover" or sl.get("bare"):
+        return
+    R = d.spec.get("rhythm_y") or {}
+    SH = d.spec["shapes"]
+    if m.get("page_numbers"):
+        y = R.get("content_bottom", 495) + 6
+        d.text(s, "micro", content_r() - 60, y, 60, 16, str(i), align="right",
+               color="faint", tag="page-number")
+    lg = m.get("logo") or {}
+    if lg.get("image"):
+        if sl.get("runner"):
+            warn(f"slide {i}: 로고 자리에 runner 가 있다 — 둘 중 하나만 둔다")
+        from PIL import Image
+        w = float(lg.get("w", 100))
+        iw, ih = Image.open(lg["image"]).size
+        h = w * ih / iw
+        cy = R.get("eyebrow_y", 45) - 6 + SH["eyebrow_chip_h"] / 2   # 눈썹 알약과 같은 줄 가운데
+        d.picture(s, lg["image"], content_r() - w, cy - h / 2, w, h, "contain", tag="logo")
 
 
 def build(outline_path, out_path=None, spec_path=None, embed=False):
@@ -1173,6 +1435,8 @@ def build(outline_path, out_path=None, spec_path=None, embed=False):
     def _abs(v):
         v = os.path.expanduser(str(v))
         return v if os.path.isabs(v) else os.path.normpath(os.path.join(base, v))
+    if (m.get("logo") or {}).get("image"):
+        m["logo"]["image"] = _abs(m["logo"]["image"])
     for sl in (o.get("slides") or []):
         if sl.get("image"):
             sl["image"] = _abs(sl["image"])
@@ -1180,7 +1444,27 @@ def build(outline_path, out_path=None, spec_path=None, embed=False):
             if it.get("image"):
                 it["image"] = _abs(it["image"])
 
+    # 노트북 연동 (원칙 §4-5) — 숫자를 슬라이드에 직접 적지 않는다. notebook.py 가 노트북을
+    # 실제로 실행해 만든 cells.json 에서 코드·출력·그림을 가져온다.
+    cells = {}
+    if m.get("cells"):
+        cpath = _abs(m["cells"])
+        cells = json.load(open(cpath, encoding="utf-8"))
+        cdir = os.path.dirname(cpath)
+        for k, sl in enumerate(o.get("slides") or [], 1):
+            if sl.get("cell") is None:
+                continue
+            c = cells.get(str(sl["cell"]))
+            if not c:
+                raise SystemExit(f"slide {k}: cells.json 에 {sl['cell']}번 칸이 없다")
+            sl.setdefault("code", c["code"])
+            if sl.get("with_output") and c.get("out"):
+                sl.setdefault("output", c["out"])
+            if sl.get("with_image") and c.get("img"):
+                sl.setdefault("image", os.path.join(cdir, c["img"]))
+
     d = Deck(spec, palette=m.get("palette"), density=m.get("density"))
+    d.cell_pages = {}
     slides = o.get("slides") or []
     prev, run, prev_mode = None, 0, None
     for i, sl in enumerate(slides, 1):
@@ -1194,6 +1478,7 @@ def build(outline_path, out_path=None, spec_path=None, embed=False):
         s = d.slide(invert=lay in INVERTED or bool(sl.get("invert")),
                     tone=sl.get("tone"))
         mode = LAYOUTS[lay](d, s, m, sl)
+        _chrome(d, s, m, sl, i)
         d.notes(s, sl.get("notes"))     # 자세한 설명은 노트로
         if lay == "cards":
             if mode == prev_mode:
@@ -1204,6 +1489,11 @@ def build(outline_path, out_path=None, spec_path=None, embed=False):
 
     out = out_path or m.get("output") or "out/deck.pptx"
     pptx, man = d.save(out, embed=embed or bool(m.get("embed_fonts")))
+    if m.get("cells") and d.cell_pages:
+        # 칸 번호 → 쪽. notebook.py 가 읽어 노트북 칸 제목에 「PPT n쪽」을 넣는다
+        cp = os.path.join(os.path.dirname(_abs(m["cells"])), "cellpages.json")
+        json.dump(d.cell_pages, open(cp, "w", encoding="utf-8"), ensure_ascii=False)
+        print(f"  노트북 칸 → 쪽: {cp}")
     for b in d.manifest:
         if b["x"] + b["w"] > content_r() + 0.5 and not b["tag"] in ("title", "caption", "eyebrow"):
             warn(f"slide {b['slide']}: '{b['tag']}' 오른변 {b['x']+b['w']:.0f} > {content_r():.0f}")
