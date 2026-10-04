@@ -1,5 +1,5 @@
 # ppt-deck 아웃라인 예시 — 명세서 아트보드 17장과 1:1 대응한다.
-# 더미 문구는 HANDOFF §8 의 것을 그대로 썼다. 좌표 대조용이다.
+# 더미 문구는 references/editorial/HANDOFF.md §8 의 것을 그대로 썼다. 좌표 대조용이다.
 meta:
   title: "재고 예측을\n다시 설계한다"
   palette: forest

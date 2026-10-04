@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""색 계산 단위 테스트 — Claude Design 명세서 §5.2 기대값을 고정한다.
+"""색 계산 단위 테스트 — references/editorial/HANDOFF.md §5.2 기대값을 고정한다.
 
     editorial 프로파일(2단 muted 모델) 전용이다. house 프로파일은 4단 톤 램프라
     기대값이 다르며, 그쪽 검증은 lint_deck.py 의 CONTRAST 가 맡는다.

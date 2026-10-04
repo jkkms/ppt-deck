@@ -1,7 +1,7 @@
 # ppt-deck 디자인 토큰 — 슬라이드를 만들기 전에 여기서 모든 결정을 끝낸다.
 # 이 파일에 없는 색·크기·간격은 builder가 쓰지 않는다. 그게 AI 티를 막는 1차 방어선이다.
 #
-# v2 시각 재설계. 정본: 'ppt-deck 재설계' 명세서 §2(토큰 표)·§3(좌표 표) / HANDOFF §4.
+# v2 시각 재설계. 정본: references/editorial/HANDOFF.md §4(토큰)·§8(좌표).
 
 canvas:
   width_pt: 960

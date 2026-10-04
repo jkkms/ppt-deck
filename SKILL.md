@@ -18,8 +18,8 @@ PY=${CLAUDE_SKILL_DIR}/.venv/bin/python      # python-pptx · pyyaml · pymupdf 
 | --- | --- |
 | `scripts/lint.py outline.yaml` | 내용·리듬의 AI 티 검사 |
 | `scripts/lint_deck.py out/deck.pptx` | **§13 구조 검사 12종** — 스케일·자간·그리드·정렬·사각형·대비 |
-| `scripts/verify_coords.py out/deck.manifest.json` | 명세서 §3 좌표 표와 0pt 대조 |
-| `scripts/test_color.py` | §5.2 색 기대값(hex 8 + 대비 8) 고정 |
+| `scripts/verify_coords.py out/deck.manifest.json` | editorial 좌표(HANDOFF §8)와 0pt 대조 |
+| `scripts/test_color.py` | HANDOFF §5.2 색 기대값(hex 8 + 대비 8) 고정 — 정본은 `references/editorial/HANDOFF.md` |
 | `scripts/build.py outline.yaml -o out/deck.pptx` | 빌드 + 기하 자기검증(넘침·이탈·불릿 줄바꿈) |
 | `scripts/preview.py outline.yaml --slides 1,5` | 팔레트 3종 비교 PNG |
 | `scripts/svgpreview.py out/deck.manifest.json --png --sheet` | **검수 1순위.** 매니페스트 → SVG/PNG. 외부 앱·권한 없이 실제 Pretendard 파일로 그린다 |
