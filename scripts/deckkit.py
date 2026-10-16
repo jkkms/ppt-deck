@@ -756,7 +756,9 @@ class Deck:
         fkey = font_key or st["font"]
         font = self.spec["fonts"][fkey]
         ea = self.spec["fonts"]["body"] if fkey == "mono" else None
-        paras = content if isinstance(content, list) else [content]
+        # 문자열 안의 줄바꿈은 문단으로 — 문단 하나에 넣으면 <a:t> 에 날 줄바꿈 문자가 들어가
+        # 파워포인트·키노트가 줄을 바꾸지 않는다(2026-10-17, badge_row·compare 본문)
+        paras = content if isinstance(content, list) else str(content).split("\n")
         if exact_center and align == "center" and len(paras) == 1:
             x = x - ink_shift(paras[0], font, st["size"])
 

@@ -95,7 +95,7 @@ class L:
                        sl["eyebrow"], color=fill, text_color=tc, style="small")
             else:
                 d.text(s, "micro", X, self.eyebrow_y, span_w(span), 15,
-                       sl["eyebrow"], color="accent", tag="eyebrow")
+                       sl["eyebrow"], color=_label_color(d), tag="eyebrow")
         if sl.get("runner"):
             d.text(s, "micro", col_x(9), self.eyebrow_y, span_w(4), 15,
                    sl["runner"], color="muted", align="right", tag="runner")
@@ -119,12 +119,19 @@ class L:
         return block_h(text, w, st, self.d.spec["fonts"][st["font"]])
 
 
+def _label_color(d):
+    """눈썹·파트 라벨 색. 반전 필드에서 accent 가 바탕과 3:1 이 안 되면 muted 로 바꾼다.
+    forest 의 진초록 1F5D42 는 반전 바탕 161C18 위에서 2.2:1 이라 표지 눈썹과 「1부」 라벨이
+    사라졌다(2026-10-17 소집면담00·소집면접00). 밝은 장과 Dive(파랑 1B7FD4) 는 그대로 accent."""
+    return "accent" if contrast(d.c("accent"), d.c("ground")) >= 3.0 else "muted"
+
+
 # ================================================================= 레이아웃
 def cover(d, s, m, sl):
     g = L(d)
     if sl.get("eyebrow"):
         d.text(s, "micro", col_x(1), g.eyebrow_y, span_w(8), 15, sl["eyebrow"],
-               color="accent", tag="eyebrow")
+               color=_label_color(d), tag="eyebrow")
     meta = _paras(sl, "meta")
     mh = g.bh("\n".join(meta), span_w(6), "small") if meta else 0
     title = _t(sl, "title") or m.get("title", "")
@@ -152,7 +159,7 @@ def closing(d, s, m, sl):
         return _closing_qa(d, s, g, sl)
     if sl.get("eyebrow"):
         d.text(s, "micro", col_x(1), g.eyebrow_y, span_w(5), 15, sl["eyebrow"],
-               color="accent", tag="eyebrow")
+               color=_label_color(d), tag="eyebrow")
     rows = (sl.get("ledger") or [])[:3]
     for i, row in enumerate(rows):
         y = g.top + 20 + i * 62
@@ -220,7 +227,7 @@ def section(d, s, m, sl):
         SH = d.spec["shapes"]
         py = SH["part_label_y"]
         d.text(s, "micro", col_x(1), py, span_w(6), 15, str(sl["part"]),
-               color="accent", tag="part-label")
+               color=_label_color(d), tag="part-label")
         title = _t(sl, "title")
         th = g.bh(title, span_w(9), "cover")
         ty = SH["part_title_y"]
@@ -229,7 +236,7 @@ def section(d, s, m, sl):
         return
     if sl.get("number"):
         d.text(s, "display", col_x(1), g.eyebrow_y, span_w(3), 46,
-               str(sl["number"]), color="accent", tag="section-num")
+               str(sl["number"]), color=_label_color(d), tag="section-num")
     if sl.get("runner"):
         d.text(s, "micro", col_x(9), g.eyebrow_y, span_w(4), 15, sl["runner"],
                color="muted", align="right", tag="runner")
@@ -674,10 +681,13 @@ def compare(d, s, m, sl):
         good = bool(it.get("good"))
         d.panel(s, x, y, pw, ph, color="figure" if good else "accent_tint",
                 radius=SH["panel_radius"])
+        # 답 쪽 배지는 반전 판(figure) 위에 선다. accent 가 그 판과 3:1 이 안 되면(forest 진초록 on 161C18)
+        # 밝은 원 + accent 기호로 — 원이 판에 묻혀 ○ 가 안 보였다(2026-10-17 소집면담00 29쪽)
+        dim = good and contrast(d.c("accent"), d.c("figure")) < 3.0
         d.badge(s, x + SH["compare_pad_x"] + SH["stair_badge_d"] / 2, y + ph / 2,
-                SH["stair_badge_d"], "accent" if good else "accent_soft",
+                SH["stair_badge_d"], ("ground" if dim else "accent") if good else "accent_soft",
                 glyph=it.get("mark", "\u25cb" if good else "\u00d7"),
-                glyph_color="figure" if good else "ground", style="lead")
+                glyph_color=("accent" if dim else "figure") if good else "ground", style="lead")
         tx_off = SH["compare_pad_x"] + SH["stair_badge_d"] + SH["badge_text_gap"]
         tx = x + tx_off
         tw = pw - tx_off - 24
@@ -1382,7 +1392,7 @@ def image_full(d, s, m, sl):
     d.plate(s, 0, 540 - PH, PW, PH, color="ground")
     if sl.get("eyebrow"):
         d.text(s, "micro", 58, 540 - PH + 26, PW - 116, 15, sl["eyebrow"],
-               color="accent", tag="eyebrow")
+               color=_label_color(d), tag="eyebrow")
     title = _t(sl, "title")
     th = block_h(title, PW - 116, d.spec["styles"]["h1"], d.spec["fonts"]["head"])
     d.text(s, "h1", 58, 540 - PH + 48, PW - 116, th, title, tag="title")
