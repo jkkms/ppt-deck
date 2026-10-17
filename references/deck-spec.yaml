@@ -209,6 +209,10 @@ table:
     4: [6, 2, 2, 2]
     5: [4, 2, 2, 2, 2]
 
+# 한글을 어절 단위로 줄을 나눠 넣는다. 키노트는 한글을 글자 단위로 끊어 낱말이 갈렸다(2026-10-17 면담00 실제 렌더).
+# 이 시리즈는 키노트로 PDF 를 뽑는다. 높이 계산(line_count)도 같은 방식으로 바뀐다
+korean_word_wrap: true
+
 density: reading        # 실측 — 슬라이드당 텍스트박스 중앙값 10개. 선생님 덱은 고밀도다
 density_limits:
   speaker: {bullets: 4, bullet_chars: 60, table_rows: 6}

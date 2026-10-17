@@ -187,8 +187,45 @@ def advance(ch: str, size: float, tracking: int, font: str | None = None) -> flo
     return size * _adv_em(ch, font) + tracking / 100.0
 
 
+# 프로파일이 korean_word_wrap: true 면 줄을 어절 단위로 미리 나눠 넣는다(Deck 이 켠다)
+WORD_WRAP = {"on": False}
+
+
+def wrap_lines(text: str, w: float, style: dict, font: str | None = None) -> list[str]:
+    """어절 단위 줄 나누기. 키노트는 한글을 글자 단위로 끊어 「계 / 획」「요소입니 / 다.」처럼 낱말이 갈렸다
+    (2026-10-17 면담00 실제 렌더). 앱에 맡기지 않고 줄을 직접 나눠 넣는다. 폭은 3% 여유
+    (153.2pt 제목이 153.5pt 칸에서 실제로 접혔다). 칸보다 긴 어절만 글자로 자른다."""
+    size, tr = style["size"], style["tracking"]
+    lim = w - max(4.0, w * 0.03)
+    adv = lambda t: sum(advance(c, size, tr, font) for c in t)
+    sp = adv(" ")
+    out = []
+    for para in str(text).split("\n"):
+        line, used = "", 0.0
+        for word in para.split(" "):
+            ww = adv(word)
+            if line and used + sp + ww > lim:
+                out.append(line)
+                line, used = "", 0.0
+            if not line and ww > lim:            # 칸보다 긴 어절 — 글자로 자른다
+                for c in word:
+                    a_ = adv(c)
+                    if line and used + a_ > lim:
+                        out.append(line)
+                        line, used = "", 0.0
+                    line += c
+                    used += a_
+                continue
+            line = f"{line} {word}" if line else word
+            used = used + sp + ww if used else ww
+        out.append(line)
+    return out
+
+
 def line_count(text: str, w: float, style: dict, font: str | None = None) -> int:
     """폭 w(pt) 안에서 필요한 줄 수. 명시적 줄바꿈을 우선 존중한다."""
+    if WORD_WRAP["on"]:
+        return len(wrap_lines(text, w, style, font))
     total = 0
     for para in str(text).split("\n"):
         used, lines = 0.0, 1
@@ -429,6 +466,7 @@ def ink_shift(text: str, font: str, size: float) -> float:
 class Deck:
     def __init__(self, spec: dict, palette: str | None = None, density: str | None = None):
         self.spec = spec
+        WORD_WRAP["on"] = bool(spec.get("korean_word_wrap"))
         self.pal_name = palette or spec["active_palette"]
         if self.pal_name not in spec["palettes"]:
             # 프로파일마다 팔레트가 다르다(house=forest…, dive=dive). 아웃라인이 다른 프로파일의
@@ -759,6 +797,8 @@ class Deck:
         # 문자열 안의 줄바꿈은 문단으로 — 문단 하나에 넣으면 <a:t> 에 날 줄바꿈 문자가 들어가
         # 파워포인트·키노트가 줄을 바꾸지 않는다(2026-10-17, badge_row·compare 본문)
         paras = content if isinstance(content, list) else str(content).split("\n")
+        if WORD_WRAP["on"] and fkey != "mono" and w > 0:
+            paras = [ln for p_ in paras for ln in wrap_lines(str(p_), w, st, font)]
         if exact_center and align == "center" and len(paras) == 1:
             x = x - ink_shift(paras[0], font, st["size"])
 
@@ -818,8 +858,34 @@ class Deck:
         return box
 
     # ---- 쪽번호 --------------------------------------------------------
+    def _register_notes_master(self):
+        """노트 틀을 presentation.xml 의 notesMasterIdLst 에 올린다.
+        python-pptx 는 노트를 만들면 노트 틀을 관계(.rels)로만 잇고 이 목록을 비워 둔다.
+        파워포인트는 넘어가지만 **키노트는 파일을 아예 열지 못한다**(-1700 missing value).
+        2026-10-17 면담00·면접00 — 노트를 뺀 사본만 열리고, 노트 장·틀을 pptxgenjs 형식으로 바꿔도 안 열렸다."""
+        from pptx.oxml.ns import qn
+        from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+        pres = self.prs.part._element
+        if pres.find(qn("p:notesMasterIdLst")) is not None:
+            return
+        rid = next((r for r, rel in self.prs.part.rels.items() if rel.reltype == RT.NOTES_MASTER), None)
+        if not rid:
+            return
+        from lxml import etree
+        lst = etree.SubElement(pres, qn("p:notesMasterIdLst"))
+        nm = etree.SubElement(lst, qn("p:notesMasterId"))
+        nm.set(qn("r:id"), rid)
+        pres.remove(lst)
+        # 스키마 순서: sldMasterIdLst → notesMasterIdLst → handoutMasterIdLst → sldIdLst
+        anchor = pres.find(qn("p:sldMasterIdLst"))
+        if anchor is not None:
+            anchor.addnext(lst)
+        else:
+            pres.insert(0, lst)
+
     def save(self, path, embed=False):
         os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
+        self._register_notes_master()
         self.prs.save(path)
         patch_theme(path, self.spec["fonts"])
         self.embedded = embed_fonts(path, self.spec["fonts"]) if embed else 0
