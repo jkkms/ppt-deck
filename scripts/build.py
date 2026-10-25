@@ -1436,8 +1436,72 @@ def _chrome(d, s, m, sl, i):
         d.picture(s, lg["image"], content_r() - w, cy - h / 2, w, h, "contain", tag="logo")
 
 
+def _expand_reveal(slides):
+    """확인 문제는 「문제 장 → 같은 배치의 정답 장」 두 장으로 (2026-10-25, 동료 강의 덱에서 배움).
+    `reveal:` 에 덮어쓸 키만 적으면 그 장 바로 뒤에 정답 장을 하나 더 만든다 — 문제 장은 그대로 두고
+    정답 칸 강조(emphasis), 풀이 한 줄(foot · band · note 등 그 레이아웃이 받는 키)만 바뀐다.
+    넘기는 순간 무엇이 달라졌는지만 눈에 들어온다. 노트도 덮어쓸 수 있다.
+    두 장의 배치가 같아야 뜻이 있다. 그래서 글로 된 키(foot · band · body · note 처럼 문자열이나 문자열 목록)는
+    문제 장에도 넣어 자리를 똑같이 잡고, 그 글과 글을 받친 판만 문제 장에서 지운다(_ghost). 글이 아닌 키
+    (emphasis 같은 숫자, items 통째)는 정답 장에만 적용된다 — items 를 바꾸면 글 길이에 따라 자리가 조금 달라질 수 있다."""
+    def is_text(v):
+        return isinstance(v, str) or (isinstance(v, list) and v and all(isinstance(x, str) for x in v))
+    out = []
+    for k, sl in enumerate(slides, 1):
+        rv = sl.get("reveal")
+        base = {key: v for key, v in sl.items() if key != "reveal"}
+        if not rv:
+            out.append(base)
+            continue
+        if not isinstance(rv, dict):
+            raise SystemExit(f"slide {k}: reveal 은 덮어쓸 키의 묶음이어야 한다 (예: {{emphasis: 1, foot: ...}})")
+        txt = {key: v for key, v in rv.items() if key != "notes" and is_text(v)}
+        ghost = [x for v in txt.values() for x in ([v] if isinstance(v, str) else v)]
+        out.append(dict(base, **txt, _ghost=ghost) if ghost else base)
+        out.append(dict(base, **rv, _reveal=True))
+    return out
+
+
+def _ghost_out(d, s, i, ghost):
+    """문제 장에서 정답 글과 그 글만 받친 판을 지운다 — 자리는 정답 장과 같게 남는다."""
+    from pptx.dml.color import RGBColor
+    from pptx.util import Pt
+    import re as _re
+    norm = lambda x: _re.sub(r"\s+", "", str(x))
+    G = [norm(g) for g in ghost if norm(g)]
+    hit = lambda tx: bool(tx) and any(tx in g for g in G)
+    gone, keep = [], []
+    for sh in list(s.shapes):
+        if not getattr(sh, "has_text_frame", False) or not sh.text_frame.text.strip():
+            continue
+        box = (sh.left, sh.top, sh.left + sh.width, sh.top + sh.height)
+        if hit(norm(sh.text_frame.text)):
+            gone.append(box)
+            sh._element.getparent().remove(sh._element)
+        else:
+            keep.append(box)
+            for p in sh.text_frame.paragraphs:            # 한 글상자에 섞여 있으면 그 줄만 바탕색으로
+                for r in p.runs:
+                    if hit(norm(r.text)):
+                        r.font.color.rgb = RGBColor.from_string(d.c("ground"))
+    inside = lambda a, b, tol=12700: a[0] >= b[0] - tol and a[1] >= b[1] - tol and a[2] <= b[2] + tol and a[3] <= b[3] + tol
+    for sh in list(s.shapes):
+        if getattr(sh, "has_text_frame", False) and sh.text_frame.text.strip():
+            continue
+        if sh.shape_type not in (1,):                     # 자동 도형(판 · 띠)만
+            continue
+        box = (sh.left, sh.top, sh.left + sh.width, sh.top + sh.height)
+        if any(inside(g, box) for g in gone) and not any(inside(k, box) for k in keep):
+            sh._element.getparent().remove(sh._element)
+            d.shapes[:] = [x for x in d.shapes if not (x["slide"] == i and abs(Pt(x["x"]) - box[0]) < 12700
+                                                         and abs(Pt(x["y"]) - box[1]) < 12700)]
+    d.manifest[:] = [b for b in d.manifest
+                     if not (b["slide"] == i and hit(norm("".join(b["text"]) if isinstance(b["text"], list) else b["text"])))]
+
+
 def build(outline_path, out_path=None, spec_path=None, embed=False):
     o = yaml.safe_load(open(outline_path, encoding="utf-8"))
+    o["slides"] = _expand_reveal(o.get("slides") or [])
     spec = load_spec(spec_path)
     m = o.get("meta") or {}
     base = os.path.dirname(os.path.abspath(outline_path))
@@ -1481,16 +1545,19 @@ def build(outline_path, out_path=None, spec_path=None, embed=False):
         lay = sl.get("layout")
         if lay not in LAYOUTS:
             raise SystemExit(f"slide {i}: 알 수 없는 layout '{lay}'")
-        run = run + 1 if lay == prev else 1
-        if run > spec["rhythm"]["max_same_layout_run"]:
+        if not sl.get("_reveal"):                # 정답 장은 리듬 세기에서 뺀다 — 짝으로 붙는 것이 뜻이다
+            run = run + 1 if lay == prev else 1
+        if run > spec["rhythm"]["max_same_layout_run"] and not sl.get("_reveal"):
             warn(f"slide {i}: '{lay}' {run}연속 — 리듬이 죽는다")
         prev = lay
         s = d.slide(invert=lay in INVERTED or bool(sl.get("invert")),
                     tone=sl.get("tone"))
         mode = LAYOUTS[lay](d, s, m, sl)
+        if sl.get("_ghost"):
+            _ghost_out(d, s, i, sl["_ghost"])
         _chrome(d, s, m, sl, i)
         d.notes(s, sl.get("notes"))     # 자세한 설명은 노트로
-        if lay == "cards":
+        if lay == "cards" and not sl.get("_reveal"):
             if mode == prev_mode:
                 warn(f"slide {i}: cards 모드 '{mode}' 가 직전 장과 같다")
             prev_mode = mode
