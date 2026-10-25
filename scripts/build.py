@@ -1315,8 +1315,66 @@ def gallery(d, s, m, sl):
                    color="muted", tag="gallery-body")
 
 
+def _table_tint(d, s, m, sl):
+    """옅은 머리 띠 표 (2026-10-25 사용자가 고쳐 보여 준 표 — 「정렬이 되어 있지 않은 느낌」「캡션과 정렬이 안 맞음」을 고친 것).
+    - 머리는 짙은 띠 대신 accent_tint 띠 위 강조색 글(SemiBold). 첫 열은 왼쪽, 값 열은 **머리와 같은 가운데**
+    - 결과 열(highlight)은 강조색 SemiBold — 표에서 볼 것이 한눈에
+    - 줄마다 아래에 가는 선, 마지막 줄 아래에도(표가 어디서 끝나는지 보인다)
+    - 캡션(footnote)은 표 바로 아래, **첫 열 글자와 같은 왼쪽 선**에 본문 크기로 — 화면 맨 아래에 따로 떨어뜨리지 않는다
+    - 첫 열은 Medium, 나머지는 Regular. 줄이 셋 이하면 lead · 줄 높이 60pt, 넷 이상이면 body · 52pt
+    - 열 너비: col_widths(pt) 를 주지 않으면 첫 열이 나머지를 다 갖고 다른 열은 144pt. col_align 은 left|center
+    - 표 덩어리(머리 + 줄 + 캡션)를 제목 · 부제 아래 영역의 세로 가운데에"""
+    g = L(d)
+    g.head(s, sl, span=12)
+    heads, rows = sl.get("headers") or [], sl.get("rows") or []
+    n = len(heads) or (len(rows[0]) if rows else 0)
+    W, x0, pad = span_w(12), col_x(1), 20.0
+    widths = list(sl.get("col_widths") or ([W - 144.0 * (n - 1)] + [144.0] * (n - 1)))
+    if len(widths) != n:
+        raise SystemExit(f"slide {d._slide_i}: col_widths 는 열 수({n})만큼")
+    widths[-1] = W - sum(widths[:-1]) if sl.get("col_widths") else widths[-1]
+    aligns = list(sl.get("col_align") or (["left"] + ["center"] * (n - 1)))
+    hi = sl.get("highlight")
+    few = len(rows) <= 3
+    head_h = 36.0
+    row_h = float(sl.get("row_h") or (60.0 if few else 52.0))
+    bstyle = sl.get("body_style", "lead" if few else "body")
+    cap = sl.get("footnote")
+    cap_gap, cap_h = 16.0, (g.bh(cap, W - 2 * pad, "body") if cap else 0.0)
+    total = head_h + row_h * len(rows) + ((cap_gap + cap_h) if cap else 0.0)
+    top = g.title_bottom
+    if sl.get("subtitle"):
+        top = max(g.top, top + 10) + g.bh(sl["subtitle"], span_w(10), "small")
+    top = max(g.block - 20, top + 28)
+    y0 = top + max(0.0, (g.bottom - top - total) / 2)
+    xs = [x0 + sum(widths[:k]) for k in range(n)]
+    d.plate(s, x0, y0, W, head_h, color="accent_tint")
+    for k, h in enumerate(heads[:n]):
+        al = aligns[k]
+        d.text(s, "body", xs[k] + (pad if al == "left" else 0), y0, widths[k] - (2 * pad if al == "left" else 0), head_h,
+               str(h), color="accent", align=al, anchor="middle", exact_center=True, font_key="head", tag="row-th")
+    for i, row in enumerate(rows):
+        y = y0 + head_h + i * row_h
+        for k, cell in enumerate(row[:n]):
+            al = aligns[k]
+            if k == 0:
+                col, fk = "figure", "label"
+            elif hi is not None and k == hi:
+                col, fk = "accent", "head"
+            else:
+                col, fk = "ink2", None
+            d.text(s, bstyle, xs[k] + (pad if al == "left" else 0), y, widths[k] - (2 * pad if al == "left" else 0), row_h,
+                   str(cell), color=col, align=al, anchor="middle", exact_center=True, font_key=fk, tag="row-td")
+        d.table_rule(s, x0, y + row_h - 0.5, W)
+    if cap:
+        d.text(s, "body", x0 + pad, y0 + head_h + row_h * len(rows) + cap_gap, W - 2 * pad, cap_h, cap,
+               color="ink2", tag="foot")
+
+
 def table(d, s, m, sl):
     T = d.spec["table"]
+    if (sl.get("style") or (m or {}).get("table_style")) == "tint":
+        return _table_tint(d, s, m, sl)
     g = L(d)
     g.head(s, sl, span=9)
     heads, rows = sl.get("headers") or [], sl.get("rows") or []
