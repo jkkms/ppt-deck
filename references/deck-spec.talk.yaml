@@ -302,8 +302,9 @@ cover:
 # 마무리: 「감사합니다」 한 줄을 파트 제목과 같은 높이에(라벨 · 맺음말 · 쪽 번호 없음 — 아웃라인에 bare: true)
 closing:
   title_y: 238.5
-# 제목 위 눈썹 대신 왼쪽 아래(쪽 번호와 같은 줄)
-eyebrow_position: footer
+# 눈썹은 쓰지 않는다 — 제목 위(「조잡」) → 왼쪽 아래(쪽 번호 줄)로 옮겼다가 그것도 지웠다(2026-10-27).
+# 흐름은 흰 바탕 질문 장(statement, flow: true)으로 보인다
+eyebrow_position: none
 # 모든 글상자 세로 중간 정렬(2026-10-27 「가운데 정렬 아니고 중간 정렬」)
 text_anchor: middle
 # 질문 장(statement): 54pt, 화면 세로 정중앙(2026-10-27 사용자가 60 → 54pt, 상자를 가운데로)

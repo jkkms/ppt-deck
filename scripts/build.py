@@ -93,6 +93,8 @@ class L:
                 tc = ec.get("text_inverted" if inv else "text", "ground")
                 d.chip(s, X, self.eyebrow_y - 6, w, SH["eyebrow_chip_h"],
                        sl["eyebrow"], color=fill, text_color=tc, style="small")
+            elif d.spec.get("eyebrow_position") == "none":
+                pass        # talk: 눈썹을 쓰지 않는다 — 왼쪽 아래로 옮긴 것까지 사용자가 지웠다(2026-10-27). 장의 위치는 흐름 질문 장이 알린다
             elif d.spec.get("eyebrow_position") == "footer":
                 # talk: 제목 위 눈썹은 「조잡해 보인다」 — 쪽 번호와 같은 높이, 왼쪽 아래 구석으로(2026-10-27 사용자)
                 R = d.spec.get("rhythm_y") or {}

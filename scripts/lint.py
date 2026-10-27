@@ -251,7 +251,8 @@ def main(path, spec_path=None):
             if t.endswith("다") and not re.search(r"(습니다|입니다|합니다|됩니다)$", t) and \
                     re.search(r"(면 |생각보다|뿐|만으로|아니라|충분|않다$|없다$|이다$|않았다$|없었다$|알 수 있다$)", t):
                 why.append("선언형 표어")
-            if re.search(r"(일까|을까|는가|인가|내나|되나)\??$", t):
+            # flow: true — 다음 장이 답하는 흐름 질문 장(2026-10-27 사용자 「흐름을 중간중간 제시」). 진짜 질문이라 수사 의문이 아니다
+            if re.search(r"(일까|을까|는가|인가|내나|되나)\??$", t) and not sl.get("flow"):
                 why.append("수사 의문")
             m_ = re.search(r"\S\s\S+,\s", t)
             if m_:
