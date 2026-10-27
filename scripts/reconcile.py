@@ -77,7 +77,14 @@ def dump_deep(path):
                 pass
             anchor, cols = "", []
             if sh.has_text_frame:
-                anchor = sh.text_frame._txBody.bodyPr.get("anchor") or "t"
+                # 세로 정렬 + 문단 가로 정렬. 가로 정렬만 바꾼 편집(막대 위 값을 가운데로, 2026-10-27)도 잡는다
+                algns = []
+                for para in sh.text_frame.paragraphs:
+                    pPr = para._p.pPr
+                    al = (pPr.get("algn") if pPr is not None else None) or "l"
+                    if para.text.strip() and (not algns or algns[-1] != al):
+                        algns.append(al)
+                anchor = (sh.text_frame._txBody.bodyPr.get("anchor") or "t") + ("|" + ",".join(algns) if algns else "")
                 for para in sh.text_frame.paragraphs:
                     for r in para.runs:
                         try:
@@ -108,7 +115,7 @@ def _deep_diff(a, b, label_a, label_b):
                 print(f"    {tag} s{i:02d} 노트 {extra[:60]!r}")
             else:
                 print(f"    {tag} s{i:02d} ({x:6},{y:6}) {w:6}x{h:5} 채움 {fill or '-':6} "
-                      f"정렬 {anchor or '-':3} 글자색 {cols or '-'} {('그림 ' + extra) if extra else ''}")
+                      f"정렬 {anchor or '-':7} 글자색 {cols or '-'} {('그림 ' + extra) if extra else ''}")
     print()
     return 1
 

@@ -123,7 +123,7 @@ def main(path, spec_path=None):
                 # 위 배지 카드(badge_row)는 배지와 글을 한 덩어리로 가운데 세운다 — Dive topBadgeCard.
                 # 띠·마감 칸·카드 줄 아래 한 줄도 판 가운데 글이다
                 if b.get("align") == "center" and not b["tag"].startswith(
-                        ("badge-", "chip-", "row-", "band", "deadline-chip"))\
+                        ("badge-", "chip-", "row-", "band", "deadline-chip", "chart-"))\
                         and b["tag"] not in ("ring-label", "nest-conclusion", "foot"):
                     fail("ALIGN", f"s{n}: '{b['tag']}' 가운데 정렬 — 본문은 좌정렬이다")
                 if b["tag"] == "eyebrow" and b["y"] not in ok_y:

@@ -541,18 +541,23 @@ def bars(d, s, m, sl):
     n = len(items)
     bw = min(span_w(2), cw / (n * 1.5 - 0.5))
     gap = bw * 0.5
+    # 막대 묶음은 칸 가운데에 둔다 — 2026-10-27 사용자 편집(발표 덱 14쪽): 왼쪽 끝에 붙어 있던 막대를 안쪽으로 옮기고
+    # 값을 막대 가운데로 맞췄다. 막대가 칸을 다 채우면(옆 표 없이 5개 이상) 묶음 폭 = 칸 폭이라 그대로 왼쪽 끝에서 시작한다
+    gx = x0 + max(0.0, (cw - (n * bw + (n - 1) * gap)) / 2)
     for i, (it, v) in enumerate(zip(items, vals)):
-        x = x0 + i * (bw + gap)
+        x = gx + i * (bw + gap)
         h = max(0.0, v / vmax) * H
         on = hi is not None and i == hi
         d.bar(s, x, base - h, bw, h, "accent" if on else ("faint" if hi is not None else "muted"))
         txt = str(it.get("text") or (f"{it.get('value')}{it.get('unit', '')}"))
-        # 막대가 칸 폭을 다 채우면(옆 표 없이 5개 이상) 마지막 막대의 글 칸이 오른쪽 여백을 넘는다 — 칸 끝에서 자른다
-        tw_ = min(bw + gap * 0.9, x0 + cw - x)
-        d.text(s, "h2", x, base - h - lab_h, tw_, lab_h - 4, txt,
-               color="accent" if on else "figure", anchor="bottom", tag="chart-value")
-        d.text(s, "body", x, base + 8, tw_, 20, str(it.get("label", "")), color="muted",
-               tag="chart-cat")
+        # 값은 막대 위, 이름은 막대 아래 — 둘 다 막대 가운데 축에 맞춘다. 글 칸은 막대 축을 중심으로 좌우 같은 폭이고
+        # 칸 양 끝을 넘지 않게 자른다(4e81248 의 오른쪽 자르기를 왼쪽에도)
+        cx = x + bw / 2
+        half = min((bw + gap * 0.9) / 2, cx - x0, x0 + cw - cx)
+        d.text(s, "h2", cx - half, base - h - lab_h, 2 * half, lab_h - 4, txt,
+               color="accent" if on else "figure", align="center", anchor="bottom", tag="chart-value")
+        d.text(s, "body", cx - half, base + 8, 2 * half, 20, str(it.get("label", "")), color="muted",
+               align="center", tag="chart-cat")
     d.table_rule(s, x0, base, cw)
     if side:
         rows = [(r.get("label", ""), r.get("value", ""), r.get("unit")) for r in side.get("rows", [])]
