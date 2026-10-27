@@ -50,7 +50,6 @@ slides:
   - layout: code_explain
     eyebrow: "배열"
     title: "일주일 판매량을 배열로"
-    kind: "함께 해 봅시다"
     cell: 1
     with_output: true
     point: "칸마다 두 배"

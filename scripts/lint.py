@@ -262,6 +262,10 @@ def main(path, spec_path=None):
             if why:
                 wrn(i, "TONE", f"{' · '.join(why)} — 발표에서 오글거린다는 피드백. "
                                f"무엇에 대한 장인지 이름표로 써라: {t[:30]!r}")
+        if sl.get("kind"):
+            # 2026-10-27 사용자: 제목 줄 오른쪽 활동 칩(「머릿속으로」 「휴대폰으로」)은 AI 티가 너무 난다
+            wrn(i, "KIND", f"활동 칩 '{sl['kind']}' — 쓰지 않는다. 활동 지시는 노트로, "
+                           f"꼭 필요하면 눈썹 하나로")
         eb = str(sl.get("eyebrow", "")).strip()
         if eb in TRANSITION:
             wrn(i, "TONE", f"눈썹 '{eb}' — 장면 전환용 접속어는 연출이다. 무엇에 대한 장인지 적어라")
