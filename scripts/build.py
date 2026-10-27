@@ -93,6 +93,11 @@ class L:
                 tc = ec.get("text_inverted" if inv else "text", "ground")
                 d.chip(s, X, self.eyebrow_y - 6, w, SH["eyebrow_chip_h"],
                        sl["eyebrow"], color=fill, text_color=tc, style="small")
+            elif d.spec.get("eyebrow_position") == "footer":
+                # talk: 제목 위 눈썹은 「조잡해 보인다」 — 쪽 번호와 같은 높이, 왼쪽 아래 구석으로(2026-10-27 사용자)
+                R = d.spec.get("rhythm_y") or {}
+                d.text(s, "micro", title_x(), R.get("content_bottom", 495) + 6, span_w(6), 16,
+                       sl["eyebrow"], color="muted", tag="corner-eyebrow")
             else:
                 d.text(s, "micro", X, self.eyebrow_y, span_w(span), 15,
                        sl["eyebrow"], color=_label_color(d), tag="eyebrow")
@@ -148,6 +153,20 @@ def cover(d, s, m, sl):
     title = _t(sl, "title") or m.get("title", "")
     th = g.bh(title, span_w(9), "cover")
     total = th + (g.gap + mh if mh and not corner else 0)
+    if CV.get("title_box"):
+        # 사용자가 직접 옮긴 표지(2026-10-27 두 번째 수정): 상자 좌표를 그대로 쓴다 — 제목 상자 189pt 는 세 줄까지 담고 중간 정렬이라
+        # 한두 줄 제목도 같은 자리 가운데에 선다. 이름은 제목 상자 바로 밑, 논문 출처(corner)는 오른쪽 아래
+        x, y, w, h = CV["title_box"]
+        # fixed- 태그: 사용자가 직접 옮긴 좌표라 그리드 · 여백 검사에서 뺀다(제목 상자 오른쪽 끝 931.8 도 사용자 값)
+        d.text(s, "cover", x, y, w, h, title.split("\n"), tag="fixed-title")
+        if meta and CV.get("meta_box"):
+            x, y, w, h = CV["meta_box"]
+            d.text(s, mst, x, y, w, h, meta, color=mcol, tag="fixed-meta")
+        if sl.get("corner") and CV.get("corner_box"):
+            x, y, w, h = CV["corner_box"]
+            d.text(s, CV.get("corner_style", "body"), x, y, w, h, sl["corner"], color="muted",
+                   align="right", tag="corner-cite")
+        return
     if CV.get("title_center") == "canvas":
         y_title = (d.spec["canvas"]["height_pt"] - th) / 2
     else:
@@ -215,6 +234,11 @@ def _closing_qa(d, s, g, sl):
     ph = (22 if d.spec.get("label_color") == "muted" else SH["eyebrow_chip_h"]) if label else 0
     gap = SH["qa_label_gap"] if label else 0
     top = round(mid - (ph + gap + th) / 2)
+    CL = d.spec.get("closing") or {}
+    if CL.get("title_y") is not None and not label:
+        # talk: 「감사합니다」 한 줄을 파트 표지 제목과 같은 높이에(2026-10-27 사용자 — 라벨 · 맺음말 · 쪽 번호를 지움)
+        top = CL["title_y"]
+        th = max(th, 63.0)
     plain = d.spec.get("label_color") == "muted"     # talk — 알약 없이 옅은 글 한 줄(강조색은 데이터에만)
     if label and plain:
         d.text(s, "small", title_x(), top, tw, ph, label, color="muted", anchor="middle", tag="qa-label")
@@ -1805,7 +1829,7 @@ def build(outline_path, out_path=None, spec_path=None, embed=False):
     for b in d.manifest:
         # corner- 는 사용자가 직접 옮긴 모서리 글(표지 이름) — 좌표를 그대로 지킨다
         if b["x"] + b["w"] > content_r() + 0.5 and not b["tag"] in ("title", "caption", "eyebrow") \
-                and not b["tag"].startswith("corner-"):
+                and not b["tag"].startswith(("corner-", "fixed-")):
             warn(f"slide {b['slide']}: '{b['tag']}' 오른변 {b['x']+b['w']:.0f} > {content_r():.0f}")
         if b["y"] + b["h"] > 540.5:
             warn(f"slide {b['slide']}: '{b['tag']}' 캔버스 하단 이탈 ({b['y']+b['h']:.0f})")

@@ -164,8 +164,8 @@ shapes:
   badge_d: 32
   badge_d_sub: 24
   badge_gap: 13
-  part_label_y: 220.5    # 파트 라벨 + 제목 덩어리(99pt)를 화면 세로 가운데(270)에 — 질문 장과 같은 중심 (2026-10-27)
-  part_title_y: 256.5
+  part_label_y: 202.5    # 파트 라벨 + 제목 덩어리를 화면 가운데보다 18pt 위에 — 사용자가 가운데(220.5)에서 올림 (2026-10-27)
+  part_title_y: 238.5
   part_rule_gap: 26
   part_rule_w: 0          # 파트 표지 제목 밑 짧은 선을 그리지 않는다 — 제목 밑 강조선은 AI 덱의 지문
   panel_pad_h: 29.5
@@ -293,11 +293,17 @@ label_color: muted
 cover:
   meta_style: lead
   meta_color: figure
-  # 사용자가 고친 표지(2026-10-27 논문 스터디 덱): 제목 상자 화면 세로 가운데 · 행사 이름은 제목 아래 31pt ·
-  # 이름은 오른쪽 아래 모서리(좌표는 사용자가 옮긴 값 그대로)
-  title_center: canvas
-  eyebrow_below: 31.1
-  meta_corner: {x: 501.8, y: 487.0, w: 430.0, h: 28.0}
+  # 사용자가 고친 표지(2026-10-27 논문 스터디 덱, 두 번째): 행사 이름 없이 제목(두 줄 폭) · 바로 밑 이름 ·
+  # 오른쪽 아래 논문 출처 한 줄. 좌표는 사용자가 옮긴 값 그대로(제목 상자 189pt = 세 줄 높이, 중간 정렬)
+  title_box: [40.0, 165.3, 891.8, 189.0]
+  meta_box: [40.0, 354.3, 430.0, 28.0]
+  corner_box: [363.8, 487.0, 568.0, 23.2]
+  corner_style: body
+# 마무리: 「감사합니다」 한 줄을 파트 제목과 같은 높이에(라벨 · 맺음말 · 쪽 번호 없음 — 아웃라인에 bare: true)
+closing:
+  title_y: 238.5
+# 제목 위 눈썹 대신 왼쪽 아래(쪽 번호와 같은 줄)
+eyebrow_position: footer
 # 모든 글상자 세로 중간 정렬(2026-10-27 「가운데 정렬 아니고 중간 정렬」)
 text_anchor: middle
 # 질문 장(statement): 54pt, 화면 세로 정중앙(2026-10-27 사용자가 60 → 54pt, 상자를 가운데로)

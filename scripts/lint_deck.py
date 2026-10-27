@@ -100,7 +100,7 @@ def main(path, spec_path=None):
                 # pair-·output 은 판 안의 글(divided_pair, code_explain 실행 결과)이라 판 여백 기준이다.
                 if EXTRA_TAGS and b["tag"].startswith(EXTRA_TAGS):
                     continue
-                if b["tag"].startswith(("chain-", "badge-", "panel-", "chip-", "corner-",
+                if b["tag"].startswith(("chain-", "badge-", "panel-", "chip-", "corner-", "fixed-",
                                         "card-", "stair-", "compare-", "nest-",
                                         "node-", "ring-", "code", "gallery-",
                                         "cg-", "explain-", "cells-",
@@ -133,7 +133,9 @@ def main(path, spec_path=None):
             R = spec.get("rhythm_y")
             # 쪽 번호 · 아래 모서리 글(표지 이름) · 그림 바로 밑 출처는 하한 아래가 제자리
             body = [b for b in boxes if b["tag"] != "page-number"
-                    and not b["tag"].startswith(("corner-", "fig-source"))]
+                    and not b["tag"].startswith(("corner-", "fixed-", "fig-source"))]
+            if not body:                 # 모든 글이 사용자 고정 좌표인 장(표지) — 잴 것이 없다
+                continue
             tops = [b["y"] for b in body]
             bottoms = [b["y"] + b["h"] for b in body]
             if R:
