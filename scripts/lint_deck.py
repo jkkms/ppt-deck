@@ -42,6 +42,8 @@ def main(path, spec_path=None):
     for s_ in ST.values():
         track_of.setdefault(s_["size"], set()).add(s_["tracking"])
     COLS = {col_x(n) for n in range(1, 13)}
+    from deckkit import title_x
+    COLS.add(title_x())          # 제목 선(grid.title_x) — talk 는 본문보다 왼쪽
 
     # ---- SCALE · TRACK · ALIGN · LINES · NO_SHADOW (XML) --------------------
     for i, sl in enumerate(slides, 1):
@@ -98,7 +100,7 @@ def main(path, spec_path=None):
                 # pair-·output 은 판 안의 글(divided_pair, code_explain 실행 결과)이라 판 여백 기준이다.
                 if EXTRA_TAGS and b["tag"].startswith(EXTRA_TAGS):
                     continue
-                if b["tag"].startswith(("chain-", "badge-", "panel-", "chip-",
+                if b["tag"].startswith(("chain-", "badge-", "panel-", "chip-", "corner-",
                                         "card-", "stair-", "compare-", "nest-",
                                         "node-", "ring-", "code", "gallery-",
                                         "cg-", "explain-", "cells-",
@@ -129,7 +131,9 @@ def main(path, spec_path=None):
                 if b["tag"] == "eyebrow" and b["y"] not in ok_y:
                     fail("EYEBROW_Y", f"s{n}: 눈썹 라벨 y={b['y']} (56 고정)")
             R = spec.get("rhythm_y")
-            body = [b for b in boxes if b["tag"] != "page-number"]   # 쪽 번호는 하한 아래가 제자리
+            # 쪽 번호 · 아래 모서리 글(표지 이름) · 그림 바로 밑 출처는 하한 아래가 제자리
+            body = [b for b in boxes if b["tag"] != "page-number"
+                    and not b["tag"].startswith(("corner-", "fig-source"))]
             tops = [b["y"] for b in body]
             bottoms = [b["y"] + b["h"] for b in body]
             if R:

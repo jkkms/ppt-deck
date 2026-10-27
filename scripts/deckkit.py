@@ -38,7 +38,7 @@ def load_spec(path: str | None = None) -> dict:
 
 # ---------------------------------------------------------------- 좌표 체계
 # 그리드 값은 스펙 파일에서 온다 — 프로파일(house / editorial)마다 다르다.
-GRID = {"x0": 58, "step": 72, "col_w": 52, "gutter": 20, "right": 902}
+GRID = {"x0": 58, "step": 72, "col_w": 52, "gutter": 20, "right": 902, "title_x": 58}
 CANVAS_W, CANVAS_H = 960, 540
 
 
@@ -46,7 +46,10 @@ def _set_grid(spec):
     g = spec["grid"]
     GRID.update(x0=g["margin_x"], step=g["col_w"] + g["gutter"],
                 col_w=g["col_w"], gutter=g["gutter"],
-                right=g["margin_x"] + 11 * (g["col_w"] + g["gutter"]) + g["col_w"])
+                right=g["margin_x"] + 11 * (g["col_w"] + g["gutter"]) + g["col_w"],
+                # 제목 선(눈썹 · 제목 · 표지 · 파트 · 질문 장). 없으면 본문 그리드와 같다.
+                # talk 는 본문을 제목보다 살짝 안쪽에 둔다(2026-10-27 사용자 「제목과 본문을 같은 좌측 선상에서 시작하게 하는 건 좋지 않다」)
+                title_x=g.get("title_x", g["margin_x"]))
     globals()["CANVAS_W"] = spec["canvas"]["width_pt"]
     globals()["CANVAS_H"] = spec["canvas"]["height_pt"]
 
@@ -55,6 +58,11 @@ def col_x(n: int) -> float:
     """1-based 컬럼 인덱스 -> x(pt)."""
     assert 1 <= n <= 12, f"컬럼 인덱스 {n} 범위 밖"
     return GRID["x0"] + (n - 1) * GRID["step"]
+
+
+def title_x() -> float:
+    """제목 선 x. 본문 그리드(col_x(1))보다 왼쪽일 수 있다 — grid.title_x."""
+    return GRID["title_x"]
 
 
 def span_w(s: int) -> float:
@@ -805,6 +813,10 @@ class Deck:
              suffix_color="figure", font_key=None, accent_paras=(),
              exact_center=False):
         """content: str 또는 list[str](문단들). style은 spec.styles의 키여야 한다."""
+        if self.spec.get("text_anchor") == "middle":
+            # 모든 글상자를 세로 중간 정렬로(talk, 2026-10-27 사용자 지시 「가운데 정렬 아니고 중간 정렬」).
+            # 상자 높이는 글 높이로 잡으므로 화면 위치는 그대로이고, 사용자가 상자를 늘려도 글이 가운데에 남는다
+            anchor = "middle"
         st = self.spec["styles"][style]
         fkey = font_key or st["font"]
         font = self.spec["fonts"][fkey]

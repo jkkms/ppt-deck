@@ -11,7 +11,7 @@ import argparse, json, os, sys
 
 import yaml
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from deckkit import (Deck, load_spec, col_x, span_w, content_r,
+from deckkit import (Deck, load_spec, col_x, span_w, content_r, title_x,
                      block_h, block_w, line_count, resolve_y, contrast)
 
 WARN: list[str] = []
@@ -77,7 +77,7 @@ class L:
         """눈썹 + 제목. 두 좌표는 모든 장에서 고정이다 — 그래서 훑을 때 눈이 안 흔들린다.
         x 는 사진이 왼쪽에 설 때(image_split)만 옮긴다 — 세로 좌표는 그대로 둔다."""
         d = self.d
-        X = col_x(1) if x is None else x
+        X = title_x() if x is None else x
         if sl.get("eyebrow"):
             if sl.get("eyebrow_chip") or d.spec.get("eyebrow_style") == "chip":
                 SH = d.spec["shapes"]
@@ -130,24 +130,38 @@ def _label_color(d):
 
 # ================================================================= 레이아웃
 def cover(d, s, m, sl):
+    """표지. talk 프로파일은 사용자가 고친 배치(2026-10-27 논문 스터디 덱)를 스펙 cover: 로 켠다 —
+    제목 상자는 화면 세로 가운데(title_center: canvas), 행사 이름은 제목 아래(eyebrow_below: 간격),
+    이름은 오른쪽 아래 모서리(meta_corner: {x, y, w, h}, 오른쪽 정렬)."""
     g = L(d)
-    if sl.get("eyebrow"):
-        d.text(s, "micro", col_x(1), g.eyebrow_y, span_w(8), 15, sl["eyebrow"],
+    CV = d.spec.get("cover") or {}
+    TX = title_x()
+    if sl.get("eyebrow") and not CV.get("eyebrow_below"):
+        d.text(s, "micro", TX, g.eyebrow_y, span_w(8), 15, sl["eyebrow"],
                color=_label_color(d), tag="eyebrow")
     meta = _paras(sl, "meta")
     # 표지 아래 줄의 크기·색은 프로파일이 정한다. talk 는 발표자 이름 한 줄을 lead 크기 먹색으로 —
     # 사용자가 표지에서 논문 부제·날짜 줄을 지우고 이름만 제목 바로 아래 남겼다(2026-10-27)
-    CV = d.spec.get("cover") or {}
     mst, mcol = CV.get("meta_style", "small"), CV.get("meta_color", "muted")
     mh = g.bh("\n".join(meta), span_w(6), mst) if meta else 0
+    corner = CV.get("meta_corner")
     title = _t(sl, "title") or m.get("title", "")
     th = g.bh(title, span_w(9), "cover")
-    total = th + (g.gap + mh if mh else 0)
-    y_title = resolve_y(total, d.spec, top=g.top)
+    total = th + (g.gap + mh if mh and not corner else 0)
+    if CV.get("title_center") == "canvas":
+        y_title = (d.spec["canvas"]["height_pt"] - th) / 2
+    else:
+        y_title = resolve_y(total, d.spec, top=g.top)
     y_meta = y_title + th + g.gap
-    d.text(s, "cover", col_x(1), y_title, span_w(9), th, title.split("\n"), tag="title")
-    if meta:
-        d.text(s, mst, col_x(1), y_meta, span_w(6), mh, meta,
+    d.text(s, "cover", TX, y_title, span_w(9), th, title.split("\n"), tag="title")
+    if sl.get("eyebrow") and CV.get("eyebrow_below"):
+        d.text(s, "micro", TX, y_title + th + float(CV["eyebrow_below"]), span_w(8), 15,
+               sl["eyebrow"], color=_label_color(d), tag="cover-eyebrow")
+    if meta and corner:
+        d.text(s, mst, corner["x"], corner["y"], corner["w"], corner["h"], meta,
+               color=mcol, align="right", tag="corner-meta")
+    elif meta:
+        d.text(s, mst, TX, y_meta, span_w(6), mh, meta,
                color=mcol, tag="meta")
 
 
@@ -164,7 +178,7 @@ def closing(d, s, m, sl):
     if not sl.get("ledger"):
         return _closing_qa(d, s, g, sl)
     if sl.get("eyebrow"):
-        d.text(s, "micro", col_x(1), g.eyebrow_y, span_w(5), 15, sl["eyebrow"],
+        d.text(s, "micro", title_x(), g.eyebrow_y, span_w(5), 15, sl["eyebrow"],
                color=_label_color(d), tag="eyebrow")
     rows = (sl.get("ledger") or [])[:3]
     for i, row in enumerate(rows):
@@ -175,7 +189,7 @@ def closing(d, s, m, sl):
                tag="ledger-value")
     title = _t(sl, "title") or "감사합니다"
     th = g.bh(title, span_w(7), "cover")
-    d.text(s, "cover", col_x(1), resolve_y(th, d.spec, top=g.top), span_w(7), th,
+    d.text(s, "cover", title_x(), resolve_y(th, d.spec, top=g.top), span_w(7), th,
            title, tag="title")
 
 
@@ -193,7 +207,7 @@ def _closing_qa(d, s, g, sl):
     else:
         ix = content_r() + SH["qa_text_gap"]   # 그림이 없으면 글이 오른쪽 여백선까지 쓴다
     # 왼쪽 — 알약 + 제목이 한 덩어리로 세로 가운데
-    tw = ix - col_x(1) - SH["qa_text_gap"]
+    tw = ix - title_x() - SH["qa_text_gap"]
     title = _t(sl, "title") or "무엇이든 물어보세요"
     th = g.bh(title, tw, "cover")
     label = sl.get("label") or ""
@@ -203,21 +217,21 @@ def _closing_qa(d, s, g, sl):
     top = round(mid - (ph + gap + th) / 2)
     plain = d.spec.get("label_color") == "muted"     # talk — 알약 없이 옅은 글 한 줄(강조색은 데이터에만)
     if label and plain:
-        d.text(s, "small", col_x(1), top, tw, ph, label, color="muted", anchor="middle", tag="qa-label")
+        d.text(s, "small", title_x(), top, tw, ph, label, color="muted", anchor="middle", tag="qa-label")
     elif label:
         pw = block_w(label, st_s, d.spec["fonts"]["body"]) + 2 * SH["qa_label_pad_x"]
         # 알약 글자색은 대비로 고른다 — 반전 필드에서 ground 는 어둡고 accent 도 어두울 수 있다
         # 둘째 강조색(highlight)이 있으면 그것 — Dive 질문 시간은 노란 알약에 어두운 글자였다. 없으면 accent
         tc = max(("ground", "figure"), key=lambda k: contrast(d.c(k), d.c("highlight")))
-        d.chip(s, col_x(1), top, pw, ph, label, color="highlight", text_color=tc,
+        d.chip(s, title_x(), top, pw, ph, label, color="highlight", text_color=tc,
                style="small", radius=SH["chip_radius"])
-    d.text(s, "cover", col_x(1), top + ph + gap, tw, th, title, tag="title")
+    d.text(s, "cover", title_x(), top + ph + gap, tw, th, title, tag="title")
     # 맺음말 한 줄은 본문 바닥선에 — 덩어리에 붙이지 않는다
     if sl.get("line"):
         lh = g.bh(sl["line"], span_w(8), "body")
         bottom = (d.spec.get("rhythm_y") or {}).get(
             "content_bottom", d.spec["canvas"]["height_pt"] - d.spec["grid"]["margin_bottom"])
-        d.text(s, "body", col_x(1), bottom - lh, span_w(8), lh,
+        d.text(s, "body", title_x(), bottom - lh, span_w(8), lh,
                sl["line"], color="muted", tag="qa-line")
     for k in ("subtitle", "lead", "questions", "items"):
         if sl.get(k):
@@ -235,14 +249,14 @@ def section(d, s, m, sl):
     if sl.get("part"):
         SH = d.spec["shapes"]
         py = SH["part_label_y"]
-        d.text(s, "micro", col_x(1), py, span_w(6), 15, str(sl["part"]),
+        d.text(s, "micro", title_x(), py, span_w(6), 15, str(sl["part"]),
                color=_label_color(d), tag="part-label")
         title = _t(sl, "title")
         th = g.bh(title, span_w(9), "cover")
         ty = SH["part_title_y"]
-        d.text(s, "cover", col_x(1), ty, span_w(9), th, title.split("\n"), tag="title")
+        d.text(s, "cover", title_x(), ty, span_w(9), th, title.split("\n"), tag="title")
         if SH.get("part_rule_w", 0) > 0:       # talk 프로파일은 0 — 제목 밑 짧은 선 없이 어두운 장 자체가 파트 표시다
-            d.hero_rule(s, col_x(1), ty + th + SH["part_rule_gap"], SH["part_rule_w"])
+            d.hero_rule(s, title_x(), ty + th + SH["part_rule_gap"], SH["part_rule_w"])
         return
     if sl.get("number"):
         d.text(s, "display", col_x(1), g.eyebrow_y, span_w(3), 46,
@@ -260,16 +274,22 @@ def statement(d, s, m, sl):
     g = L(d)
     g.head(s, sl, span=9)
     text = _t(sl, "text")
-    th = g.bh(text, span_w(11), "cover")
+    # talk: 질문 장은 54pt, 화면 세로 정중앙(2026-10-27 사용자가 60 → 54pt, 상자를 화면 가운데로 옮김)
+    ST = d.spec.get("statement") or {}
+    sst = ST.get("style", "cover")
+    th = g.bh(text, span_w(11), sst)
     body = _paras(sl, "body")
     bh_ = g.bh("\n".join(body), span_w(7), "lead") if body else 0
     total = th + (g.gap + bh_ if bh_ else 0)
-    y = resolve_y(total, d.spec, top=g.top)
+    if ST.get("center") == "canvas":
+        y = (d.spec["canvas"]["height_pt"] - total) / 2
+    else:
+        y = resolve_y(total, d.spec, top=g.top)
     acc = sl.get("accent_lines") or []
-    d.text(s, "cover", col_x(1), y, span_w(11), th, text.split("\n"),
+    d.text(s, sst, title_x(), y, span_w(11), th, text.split("\n"),
            accent_paras=tuple(acc), tag="statement")
     if bh_:
-        d.text(s, "lead", col_x(1), y + th + g.gap, span_w(7), bh_, body,
+        d.text(s, "lead", title_x(), y + th + g.gap, span_w(7), bh_, body,
                color="ink2", tag="statement-body")
     kw = [str(k) for k in (sl.get("keywords") or [])]
     if kw:                          # 다음 차시처럼 다룰 낱말을 알약으로 (Dive P_next)
@@ -551,9 +571,11 @@ def bars(d, s, m, sl):
         d.bar(s, x, base - h, bw, h, "accent" if on else ("faint" if hi is not None else "muted"))
         txt = str(it.get("text") or (f"{it.get('value')}{it.get('unit', '')}"))
         # 값은 막대 위, 이름은 막대 아래 — 둘 다 막대 가운데 축에 맞춘다. 글 칸은 막대 축을 중심으로 좌우 같은 폭이고
-        # 칸 양 끝을 넘지 않게 자른다(4e81248 의 오른쪽 자르기를 왼쪽에도)
+        # 칸 왼쪽 끝과 오른쪽 한계를 넘지 않게 자른다(4e81248 의 오른쪽 자르기를 왼쪽에도).
+        # 오른쪽 한계는 옆 표가 있으면 옆 표 앞(칸 사이 빈 곳까지 써서 「Snowball」 같은 이름이 접히지 않게), 없으면 오른쪽 여백
         cx = x + bw / 2
-        half = min((bw + gap * 0.9) / 2, cx - x0, x0 + cw - cx)
+        lim = (col_x(8) - 12) if side else content_r()
+        half = min((bw + gap * 0.9) / 2, cx - x0, lim - cx)
         d.text(s, "h2", cx - half, base - h - lab_h, 2 * half, lab_h - 4, txt,
                color="accent" if on else "figure", align="center", anchor="bottom", tag="chart-value")
         d.text(s, "body", cx - half, base + 8, 2 * half, 20, str(it.get("label", "")), color="muted",
@@ -1781,7 +1803,9 @@ def build(outline_path, out_path=None, spec_path=None, embed=False):
         json.dump(d.cell_pages, open(cp, "w", encoding="utf-8"), ensure_ascii=False)
         print(f"  노트북 칸 → 쪽: {cp}")
     for b in d.manifest:
-        if b["x"] + b["w"] > content_r() + 0.5 and not b["tag"] in ("title", "caption", "eyebrow"):
+        # corner- 는 사용자가 직접 옮긴 모서리 글(표지 이름) — 좌표를 그대로 지킨다
+        if b["x"] + b["w"] > content_r() + 0.5 and not b["tag"] in ("title", "caption", "eyebrow") \
+                and not b["tag"].startswith("corner-"):
             warn(f"slide {b['slide']}: '{b['tag']}' 오른변 {b['x']+b['w']:.0f} > {content_r():.0f}")
         if b["y"] + b["h"] > 540.5:
             warn(f"slide {b['slide']}: '{b['tag']}' 캔버스 하단 이탈 ({b['y']+b['h']:.0f})")

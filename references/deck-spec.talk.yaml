@@ -14,15 +14,19 @@ canvas:
   width_pt: 960
   height_pt: 540
 grid:
-  margin_x: 40
+  # 본문은 제목보다 18pt 안쪽(2026-10-27 사용자 「제목과 본문을 같은 좌측 선상에서 시작하게 하는 건 좋지 않다 — 본문이 살짝 더 안쪽으로」).
+  # 제목 선 40 은 그대로(「조금 더 왼쪽」), 오른쪽 끝 920 도 그대로 — 본문 칸만 좁혔다. 58 + 11 × 73.5 + 53.5 = 920
+  margin_x: 58
+  title_x: 40
   margin_top: 36
   margin_bottom: 45
   columns: 12
-  col_w: 55
+  col_w: 53.5
   gutter: 20
 rhythm_y:
-  eyebrow_y: 20
-  title_y: 36
+  # 눈썹과 제목 사이를 벌렸다(2026-10-27 「제목 위에 글씨를 굳이 써야겠다면 여백을 조금 더」). 20/36 → 16/42
+  eyebrow_y: 16
+  title_y: 42
   content_y: 108
   block_y: 126
   content_bottom: 480
@@ -57,6 +61,11 @@ styles:
     size: 60
     leading: 1.05
     tracking: -120
+  statement:
+    font: display
+    size: 54
+    leading: 1.1
+    tracking: -100
   display:
     font: head
     size: 48
@@ -155,8 +164,8 @@ shapes:
   badge_d: 32
   badge_d_sub: 24
   badge_gap: 13
-  part_label_y: 176
-  part_title_y: 212
+  part_label_y: 220.5    # 파트 라벨 + 제목 덩어리(99pt)를 화면 세로 가운데(270)에 — 질문 장과 같은 중심 (2026-10-27)
+  part_title_y: 256.5
   part_rule_gap: 26
   part_rule_w: 0          # 파트 표지 제목 밑 짧은 선을 그리지 않는다 — 제목 밑 강조선은 AI 덱의 지문
   panel_pad_h: 29.5
@@ -284,3 +293,14 @@ label_color: muted
 cover:
   meta_style: lead
   meta_color: figure
+  # 사용자가 고친 표지(2026-10-27 논문 스터디 덱): 제목 상자 화면 세로 가운데 · 행사 이름은 제목 아래 31pt ·
+  # 이름은 오른쪽 아래 모서리(좌표는 사용자가 옮긴 값 그대로)
+  title_center: canvas
+  eyebrow_below: 31.1
+  meta_corner: {x: 501.8, y: 487.0, w: 430.0, h: 28.0}
+# 모든 글상자 세로 중간 정렬(2026-10-27 「가운데 정렬 아니고 중간 정렬」)
+text_anchor: middle
+# 질문 장(statement): 54pt, 화면 세로 정중앙(2026-10-27 사용자가 60 → 54pt, 상자를 가운데로)
+statement:
+  style: statement
+  center: canvas
