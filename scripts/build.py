@@ -547,9 +547,11 @@ def bars(d, s, m, sl):
         on = hi is not None and i == hi
         d.bar(s, x, base - h, bw, h, "accent" if on else ("faint" if hi is not None else "muted"))
         txt = str(it.get("text") or (f"{it.get('value')}{it.get('unit', '')}"))
-        d.text(s, "h2", x, base - h - lab_h, bw + gap * 0.9, lab_h - 4, txt,
+        # 막대가 칸 폭을 다 채우면(옆 표 없이 5개 이상) 마지막 막대의 글 칸이 오른쪽 여백을 넘는다 — 칸 끝에서 자른다
+        tw_ = min(bw + gap * 0.9, x0 + cw - x)
+        d.text(s, "h2", x, base - h - lab_h, tw_, lab_h - 4, txt,
                color="accent" if on else "figure", anchor="bottom", tag="chart-value")
-        d.text(s, "body", x, base + 8, bw + gap * 0.9, 20, str(it.get("label", "")), color="muted",
+        d.text(s, "body", x, base + 8, tw_, 20, str(it.get("label", "")), color="muted",
                tag="chart-cat")
     d.table_rule(s, x0, base, cw)
     if side:
