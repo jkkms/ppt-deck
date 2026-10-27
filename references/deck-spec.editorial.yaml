@@ -194,6 +194,7 @@ shapes:
 
 # --- table ------------------------------------------------------------------
 table:
+  default_style: dark   # 명세 보존본 — 짙은 머리 띠 그대로 (다른 프로파일의 기본은 2026-10-27 부터 tint)
   header_h: 34
   row_h:    40
   pad_x:    16
@@ -224,3 +225,6 @@ rhythm:
   max_same_layout_run: 2
   max_same_cards_mode_run: 1   # 신규: cards 연속 시 같은 모드 반복 금지
   page_number_from: 2
+
+# 명세 보존본 — data 장도 옛 배치(강조색 히어로 + 밑줄 + 쌓인 작은 숫자) 그대로 (2026-10-27 새 배치는 다른 프로파일만)
+data_style: classic

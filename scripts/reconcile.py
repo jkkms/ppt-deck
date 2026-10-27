@@ -39,10 +39,78 @@ def dump(path):
                 out.append(geo + (None, None, "<shape:%s>" % (prst.group(1) if prst else "?")))
                 continue
             for para in sh.text_frame.paragraphs:
+                # 같은 크기·굵기로 이어진 run 은 하나로 합친다. 파워포인트는 고쳐 저장할 때 맞춤법 표시 등으로
+                # 한 문장을 run 여러 개로 쪼갠다(「답」「 」「분포로」…) — 글이 같아도 사용자 수정으로 잘못 잡혔다(2026-10-27)
+                merged = []
                 for r in para.runs:
-                    out.append(geo + (r.font.size.pt if r.font.size else None,
-                                      bool(r.font.bold), r.text))
+                    k = (r.font.size.pt if r.font.size else None, bool(r.font.bold))
+                    if merged and merged[-1][0] == k:
+                        merged[-1][1] += r.text
+                    else:
+                        merged.append([k, r.text])
+                for (sz, bold), text in merged:
+                    out.append(geo + (sz, bold, text))
     return out
+
+
+def _sortkey(row):
+    """None(글 없는 도형의 크기)과 숫자가 섞인 줄도 정렬되게. 원래 sorted() 가 TypeError 로 멈췄다(2026-10-27)."""
+    return tuple((0, v, "") if isinstance(v, (int, float)) and not isinstance(v, bool)
+                 else (1, 0, str(v)) for v in row)
+
+
+def dump_deep(path):
+    """dump() 가 못 보는 것 — 채움색 · 글자색 · 세로 정렬 · 그림(내용 해시) · 발표 노트.
+    2026-10-27: 사용자가 돌려준 발표 덱에서 표지 제목의 세로 정렬(위 → 가운데)만 바뀐 것을 dump() 로는
+    못 잡았다(위치·크기·글이 그대로라서). 색만 바꾼 것, 그림만 바꿔 끼운 것, 노트만 고친 것도 같다.
+    기준 덤프 형식은 그대로 두고(옛 기준과 비교가 깨지지 않게) 이 지문을 따로 둔다."""
+    prs = Presentation(path)
+    out = []
+    for i, sl in enumerate(prs.slides, 1):
+        for sh in sl.shapes:
+            geo = (i, P(sh.left), P(sh.top), P(sh.width), P(sh.height))
+            fill = ""
+            try:
+                if sh.fill.type == 1:
+                    fill = str(sh.fill.fore_color.rgb)
+            except Exception:
+                pass
+            anchor, cols = "", []
+            if sh.has_text_frame:
+                anchor = sh.text_frame._txBody.bodyPr.get("anchor") or "t"
+                for para in sh.text_frame.paragraphs:
+                    for r in para.runs:
+                        try:
+                            c = str(r.font.color.rgb)
+                        except Exception:
+                            c = ""
+                        if not cols or cols[-1] != c:
+                            cols.append(c)
+            pic = ""
+            if sh.shape_type == 13:
+                pic = hashlib.sha1(sh.image.blob).hexdigest()[:12]
+            out.append(geo + ("deep", fill, anchor, "/".join(cols), pic))
+        notes = sl.notes_slide.notes_text_frame.text.strip() if sl.has_notes_slide else ""
+        out.append((i, 0, 0, 0, 0, "notes", "", "", "", notes))
+    return out
+
+
+def _deep_diff(a, b, label_a, label_b):
+    da, db = set(map(tuple, dump_deep(a))), set(map(tuple, dump_deep(b)))
+    only_a, only_b = sorted(da - db, key=_sortkey), sorted(db - da, key=_sortkey)
+    if not only_a and not only_b:
+        return 0
+    print(f"  서식·그림·노트 차이 — {label_a} {len(only_a)}개 · {label_b} {len(only_b)}개")
+    for tag, rows in ((label_a, only_a), (label_b, only_b)):
+        for r in rows[:30]:
+            i, x, y, w, h, kind, fill, anchor, cols, extra = r
+            if kind == "notes":
+                print(f"    {tag} s{i:02d} 노트 {extra[:60]!r}")
+            else:
+                print(f"    {tag} s{i:02d} ({x:6},{y:6}) {w:6}x{h:5} 채움 {fill or '-':6} "
+                      f"정렬 {anchor or '-':3} 글자색 {cols or '-'} {('그림 ' + extra) if extra else ''}")
+    print()
+    return 1
 
 
 def _edit_signals(path):
@@ -57,10 +125,12 @@ def _edit_signals(path):
 
 def diff(a, b, label_a="배포본", label_b="내 빌드"):
     da, db = set(map(tuple, dump(a))), set(map(tuple, dump(b)))
-    only_a, only_b = sorted(da - db), sorted(db - da)
+    only_a, only_b = sorted(da - db, key=_sortkey), sorted(db - da, key=_sortkey)
+    deep = _deep_diff(a, b, label_a, label_b)
     if not only_a and not only_b:
-        print("  ✓ 도형 단위로 완전히 같다")
-        return 0
+        print("  ✓ 도형 단위로 완전히 같다" if not deep else
+              "  위치 · 크기 · 글은 같고 위의 서식 · 그림 · 노트만 다르다")
+        return deep
     print(f"  {label_a}에만 있는 것 {len(only_a)}개 · {label_b}에만 있는 것 {len(only_b)}개\n")
     for tag, rows in ((f"{label_a} (사용자 수정일 가능성)", only_a), (f"{label_b}", only_b)):
         if not rows:
@@ -88,9 +158,14 @@ def deploy(src, dest, first=False):
         else:
             base = [tuple(r) for r in json.load(open(bpath, encoding="utf-8"))]
             cur = [tuple(r) for r in dump(dest)]
-            if set(base) != set(cur):
+            dpath = bpath[:-5] + ".deep.json"
+            deep_changed = False
+            if os.path.exists(dpath):      # 옛 기준에는 없다 — 있을 때만 본다
+                dbase = {tuple(r) for r in json.load(open(dpath, encoding="utf-8"))}
+                deep_changed = dbase != {tuple(r) for r in dump_deep(dest)}
+            if set(base) != set(cur) or deep_changed:
                 print(f"✗ 배포본이 마지막 배포 이후 바뀌었다 — 덮어쓰지 않았다.\n")
-                only_cur = sorted(set(cur) - set(base))
+                only_cur = sorted(set(cur) - set(base), key=_sortkey)
                 for r in only_cur[:40]:
                     i, x, y, w, h, sz, bold, t = r
                     print(f"    s{i:02d} ({x:6},{y:6}) {w:6}x{h:5} "
@@ -105,6 +180,7 @@ def deploy(src, dest, first=False):
                 return 1
     shutil.copyfile(src, dest)
     json.dump(dump(dest), open(bpath, "w", encoding="utf-8"), ensure_ascii=False)
+    json.dump(dump_deep(dest), open(bpath[:-5] + ".deep.json", "w", encoding="utf-8"), ensure_ascii=False)
     print(f"✓ 배포 완료 -> {dest}")
     print(f"  기준 덤프 갱신: {os.path.normpath(bpath)}")
     return 0

@@ -34,7 +34,7 @@ AI로 만든 PPT는 내용과 무관하게 알아봅니다. 원인은 대부분 
 | 장마다 제목 위치가 흔들림 | 수직 리듬 고정 — 눈썹 45 / 제목 68 / 본문 117. 훑을 때 눈이 안 흔들린다 |
 | 그림자·둥근모서리·그라데이션·3D | 생성 경로 자체가 없다 |
 | **제목 밑 강조선, 카드 모서리 색줄** | **만들지 않는다.** 남은 줄은 표 머리·데이터 밑줄 같은 구조적인 것뿐 |
-| 같은 크기 숫자 3개를 나란히 (대시보드 위젯) | `data`는 히어로 1 + 종속 3행의 비대칭 위계 |
+| 같은 크기 숫자 3개를 나란히 (대시보드 위젯) | `data`는 히어로 1 + 종속 줄 표의 비대칭 위계. 비교할 숫자는 `bars` 막대로 |
 | 카드 3열 그리드 반복 | **항목 수가 구성을 결정** — 2 pair / 3 ledger / 4 quad / 5–6 dense |
 | 내용 적은 장의 하단 공백 과다 | 상단 56 / 하단 484 **이분법**. 눈썹은 항상 56 고정이라 공백이 프레임이 된다 |
 | 완결 문장 불릿, 기계적 병렬, 이모지 | 린터가 `SENTENCE` / `UNIFORM` / `PARALLEL` / `EMOJI`로 잡는다 |
@@ -59,6 +59,7 @@ AI로 만든 PPT는 내용과 무관하게 알아봅니다. 원인은 대부분 
 | `house` (기본) | forest 팔레트 · 제목 31pt · 모서리 5pt | 강의자료·면담 자료 계열 |
 | `dive` | 흰 바탕 · 파랑 + 노랑 강조 · 어두운 장 · 제목 38pt Bold · 모서리 11.5pt · 알약 눈썹 | 매 차시 같은 뼈대로 여닫는 수업 덱 |
 | `editorial` | 직각 · 큰 활자 | 디자인 명세 보존본 |
+| `talk` | 흰 바탕 · 먹 · 신호 주황 하나(데이터에만) · 어두운 장 · 마진 40 · 제목 40pt · 모서리 7pt | 동아리·학회 발표 덱 (예시 `references/outline.talk.yaml`) |
 
 `build.py outline.yaml --spec references/deck-spec.dive.yaml`. 시리즈 안에서는 프로파일을 바꾸지 않는다 —
 반경 하나, 제목 굵기 하나가 바뀌면 다른 수업처럼 보인다.
@@ -87,7 +88,7 @@ AI로 만든 PPT는 내용과 무관하게 알아봅니다. 원인은 대부분 
 </tr>
 <tr>
 <td><img src="docs/cellgrid.png" alt="cellgrid"><br><code>cellgrid</code> · 자료구조를 칸으로 그려 가르친다</td>
-<td><img src="docs/data.png" alt="data"><br><code>data</code> · 히어로 1 + 보조 2의 비대칭 위계</td>
+<td><img src="docs/data.png" alt="data"><br><code>data</code> · 먹색 히어로 1 + 오른쪽 줄 표. 두 덩어리가 같은 먹선에서 시작</td>
 </tr>
 <tr>
 <td><img src="docs/code-explain.png" alt="code_explain"><br><code>code_explain</code> · 코드 왼쪽(실행 결과는 판 안에), 설명 오른쪽, 칸 그림은 각 열 가운데</td>
@@ -95,7 +96,7 @@ AI로 만든 PPT는 내용과 무관하게 알아봅니다. 원인은 대부분 
 </tr>
 <tr>
 <td><img src="docs/divided-pair.png" alt="divided_pair"><br><code>divided_pair</code> · 열마다 상자 하나 — 이름·한 줄 설명 / 가는 선 / 실제 모습. 좌우 구분선 높이가 나란하다</td>
-<td></td>
+<td><img src="docs/bars.png" alt="bars"><br><code>bars</code> · 막대 비교. 값은 막대 위, 볼 막대 하나만 강조색, 옆에 줄 표 (talk 프로파일)</td>
 </tr>
 <tr>
 <td><img src="docs/closing-qa.png" alt="closing (질문 시간)"><br><code>closing</code> · 마무리 질문 장. 알약 라벨 · 큰 제목 · 맺음말 한 줄, 그림은 선택</td>
@@ -235,7 +236,7 @@ scripts/metrics.py            글리프 폭 추출
 
 ## 알려진 한계
 
-- **차트가 없습니다.** 숫자는 `data`의 큰 활자로 보여주거나, 차트를 이미지로 만들어 넣어야 합니다
+- **차트는 막대 비교(`bars`)뿐입니다.** 꺾은선·산점·분포 그래프는 이미지로 넣거나 덱 폴더의 `ext.py` 로 얹습니다
 - 벤다이어그램·타임라인 같은 도식은 표나 카드로 눌립니다
 - 미리보기는 빌더와 같은 메트릭으로 줄을 나눕니다. **빌더가 놓친 넘침은 미리보기에서도 안 보입니다.** 커닝·합자·PowerPoint 고유의 줄바꿈 규칙은 재현하지 않습니다
 - macOS에서 개발·검증했습니다

@@ -23,22 +23,36 @@ SKIP = ("STRUCTURE", "PARALLEL", "LAYOUT", "RHYTHM", "VISUAL", "SOURCE", "DENSIT
 
 def outline(path):
     slides = []
-    for s in Presentation(path).slides:
+    prs = Presentation(path)
+    for s in prs.slides:
         ts = []
         for sh in s.shapes:
             if sh.has_text_frame:
                 t = " ".join(p.text for p in sh.text_frame.paragraphs if p.text.strip())
                 if t.strip() and not t.strip().isdigit():        # 쪽번호는 뺀다
                     ts.append(t)
-        # 글 상자 중 가장 큰 글자를 제목으로 본다
+        # 제목 찾기 — 제목 개체 틀이 있으면 그것, 없으면 화면 위쪽 22% 안에서 가장 큰 글.
+        # 예전처럼 장 전체에서 가장 큰 글을 제목으로 보면 데이터 장에서는 「42」「7.3」 같은 숫자가 뽑혀
+        # 진짜 제목(「모델 내부는 볼 수 없었다」 같은 표어형)을 검사하지 못했다 (2026-10-27)
         title, best = "", 0
-        for sh in s.shapes:
-            if not sh.has_text_frame: continue
-            for p in sh.text_frame.paragraphs:
-                for r in p.runs:
-                    sz = r.font.size.pt if r.font.size else 0
-                    if sz > best and r.text.strip() and not r.text.strip().isdigit():
-                        best, title = sz, p.text
+        ph = [sh for sh in s.shapes if sh.is_placeholder and sh.has_text_frame
+              and sh.placeholder_format.type in (1, 3) and sh.text_frame.text.strip()]   # TITLE · CENTER_TITLE
+        if ph:
+            title = " ".join(p.text for p in ph[0].text_frame.paragraphs if p.text.strip())
+        else:
+            H = prs.slide_height or 1
+            for top_only in (True, False):
+                for sh in s.shapes:
+                    if not sh.has_text_frame: continue
+                    if top_only and (sh.top or 0) > 0.22 * H: continue
+                    for p in sh.text_frame.paragraphs:
+                        for r in p.runs:
+                            sz = r.font.size.pt if r.font.size else 0
+                            if sz > best and r.text.strip() and not re.fullmatch(r"[\d.,%\s]+", r.text.strip()):
+                                # 두 줄 제목(문단 둘)은 글상자 전체가 제목이다
+                                best, title = sz, " ".join(q.text for q in sh.text_frame.paragraphs if q.text.strip())
+                if title:
+                    break
         notes = s.notes_slide.notes_text_frame.text if s.has_notes_slide else ""
         slides.append({"layout": "statement", "title": title,
                        "bullets": [t for t in ts if t != title], "notes": notes})

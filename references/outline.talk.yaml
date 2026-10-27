@@ -1,0 +1,76 @@
+# ppt-deck 아웃라인 예시 — talk 프로파일 (발표 덱)
+# build.py references/outline.talk.yaml --spec references/deck-spec.talk.yaml
+#
+# 2026-10-27 「답 분포로 LLM 구별하기」 발표 덱의 내용으로 talk 프로파일의 장 종류를 한 번씩 보인다.
+# 수치는 Bruckner (2026) One Token Is Enough (arXiv 2607.10252) 공개 데이터와 발표 노트에서 왔다.
+meta:
+  title: "답 분포로 LLM 구별하기"
+  palette: signal
+  density: speaker
+  page_numbers: true
+
+slides:
+  # 표지 — 어두운 장. 발표 덱은 표지·청중 참여·파트·마무리만 어둡게 둔다
+  # 사용자 편집(2026-10-27): 한 줄 제목, 논문 부제 · 날짜 줄은 지우고 이름만 제목 바로 아래
+  - layout: cover
+    invert: true
+    eyebrow: "GDGoC KAIST 자유 발표"
+    title: "답 분포로 LLM 구별하기"
+    meta: ["김민성"]
+    notes: "자기소개 한 줄."
+
+  # 청중 참여 — 활동 칩(「머릿속으로」) 대신 장 자체가 지시다. 어두운 장으로 바꿔 넘기는 순간 알린다
+  # 보조 설명 줄(「소리 내지 말고 머릿속으로만」)은 사용자가 지웠다 — 말로 하고 노트에 둔다
+  - layout: statement
+    invert: true
+    text: "1부터 100 사이에서\n숫자 하나를 골라 보세요"
+    notes: "5초 기다린다. 고른 숫자를 입 밖으로 말하지 말라고 한다."
+
+  - layout: data
+    title: "모델 165개의 답"
+    items:
+      - {value: "53", unit: "%", caption: "전체 답 가운데 42의 비율"}
+      - {value: "105", unit: "개", caption: "42를 가장 많이 고른 모델"}
+      - {value: "18", unit: "%", caption: "둘째로 많은 답 47"}
+    notes: "1부터 100까지 고르게 흩어질 것 같지만 실제로는 몇 개 숫자에 몰린다."
+
+  - layout: table
+    title: "모델별 가장 많이 나온 답"
+    headers: ["모델", "가장 많이 나온 답", "비율"]
+    rows:
+      - ["Claude Sonnet 4.5", "47", "93%"]
+      - ["GPT-4o", "42", "43%"]
+      - ["Llama 3.3 70B", "53", "97%"]
+      - ["DeepSeek V3.2", "37", "23%"]
+    highlight: 1
+    footnote: "모델마다 30번씩 질문. 데이터: Bruckner (2026)"
+    notes: "답 하나만 보면 비슷해도, 흩어지는 모양까지 보면 모델마다 다르다."
+
+  - layout: section
+    part: "PART 02"
+    runner: "Bruckner (2026), arXiv 2607.10252"
+    title: "One Token Is Enough"
+
+  # bars — 비교할 것은 막대로(값은 막대 위), 나머지 사실은 옆 줄 표로. 두 머리선 · 두 바닥선이 같은 높이
+  - layout: bars
+    title: "검증 성능과 비용"
+    label: "판정 오류율 (EER)"
+    note: "낮을수록 정확"
+    items:
+      - {label: "질문 8칸", value: 10.6, text: "10.6%"}
+      - {label: "질문 40칸 전부", value: 7.3, text: "7.3%"}
+    highlight: 1
+    max: 12
+    side:
+      label: "규모와 비용"
+      rows:
+        - {label: "실험한 모델", value: "165", unit: "개"}
+        - {label: "API 호출", value: "32만", unit: "번 넘게"}
+        - {label: "실험 전체 비용", value: "34", unit: "달러"}
+        - {label: "모델 하나당", value: "0.21", unit: "달러"}
+    notes: "API가 광고한 모델을 정말 서빙하는지 판정하는 실험. 믿을 만한 기준 배포와 지문을 비교한다."
+
+  - layout: closing
+    label: "질문 시간"
+    title: "무엇이든 물어보세요"
+    line: "Bruckner, One Token Is Enough (2026) · 데이터 CC BY 4.0"

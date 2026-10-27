@@ -105,7 +105,9 @@ def main(path, spec_path=None):
                                         "pair-", "output",
                                         # 수업 흐름 페이지(badge_row·recap·deadline)의 판 안 글과 쪽 번호
                                         "row-", "recap-", "band", "deadline-", "cell-label",
-                                        "page-number")) or \
+                                        "page-number",
+                                        # bars 의 막대 위 값 · 축 아래 이름은 막대 자리에 붙는다
+                                        "chart-")) or \
                    b["tag"] in ("full-title", "caption", "ledger-index", "foot", "tail") or \
                    (b["tag"] == "eyebrow" and b["y"] > 300):
                     continue
@@ -148,7 +150,8 @@ def main(path, spec_path=None):
         # node(타임라인 마디) · ring(포함관계 고리)은 활자를 담지 않는다.
         # 축 위의 위치, 고리의 크기 자체가 관계를 나타내므로 장식이 아니다.
         ALLOWED = {"plate", "panel", "badge", "chip", "connector",
-                   "node", "ring", "hero_rule", "table_rule", "glow"}
+                   "node", "ring", "hero_rule", "table_rule", "glow",
+                   "bar"}            # bars 레이아웃의 막대 — 크기가 곧 데이터 (2026-10-27)
         ALLOWED |= EXTRA_KINDS
         # glow(그림 뒤 조명)는 그림을 받칠 때만 — 사용자 원칙 「마무리(Q&A) 슬라이드」
         for sh in man.get("shapes", []):
@@ -187,6 +190,22 @@ def main(path, spec_path=None):
                 fail("SHAPE", f"s{n}: 선 두께 {min(sh['w'], sh['h'])} — 1pt 안팎이어야 한다")
     else:
         fail("PLATE", "매니페스트가 없어 사각형·그리드 검사를 못 했다")
+
+    # --- TITLE_DOMINANT — 제목이 그 장에서 가장 큰 글이다 (2026-10-27) ------------------
+    # 「제목보다 그래프가 더 큰 느낌」(발표 덱 12쪽): 그래프 주석 숫자(44pt)가 제목(34pt)보다 컸다.
+    # 숫자가 주인공인 data 의 히어로만 예외다. 표지·파트·스테이트먼트처럼 제목 태그가 없는 장은 안 본다
+    if man:
+        for n, boxes in sorted(by_slide.items()):
+            t = [b for b in boxes if b["tag"] == "title"]
+            if not t:
+                continue
+            tsz = max(b["size"] for b in t)
+            for b in boxes:
+                if b["tag"] in ("title", "hero") or b["tag"].startswith(("full-", "cover", "section")):
+                    continue
+                if b["size"] > tsz + 0.01:
+                    fail("TITLE_DOMINANT", f"s{n}: '{b['tag']}' {b['size']}pt 가 제목 {tsz}pt 보다 크다 "
+                                           f"— 주석·라벨은 제목보다 작게")
 
     # --- '제작 원칙' §5-2 — 여백 침범 · 도형 겹침 · 화면 밖 -------------
     if man:

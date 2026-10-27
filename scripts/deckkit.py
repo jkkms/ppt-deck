@@ -134,8 +134,11 @@ def derive(pal: dict, cfg: dict) -> dict:
                "hairline": mix(f, g, c["hairline_mix"]),
                # 실측 — 패널 채움 EDF1EC = accent 를 ground 쪽으로 0.94, 보조 배지 6E9C7F = 0.37
                # 어두운 바탕 위 판은 더 진하게 섞어야 보인다 (Dive 실측 — 밝은 쪽 0.93, 어두운 쪽 0.79)
-               "accent_tint": mix(pal["accent"], g, c.get("accent_tint_mix_dark", c.get("accent_tint_mix", 0.94))
+               "accent_tint": mix(pal["figure"] if c.get("tint_from") == "figure" else pal["accent"], g,
+                                  c.get("accent_tint_mix_dark", c.get("accent_tint_mix", 0.94))
                                   if is_dark_ground(pal) else c.get("accent_tint_mix", 0.94)),
+               # tint_from: figure — 판·표 머리를 강조색이 아니라 먹을 옅게 한 중립 회색으로(talk 프로파일).
+               # 강조색이 주황처럼 센 팔레트에서 판까지 물들면 데이터의 강조와 뜻이 섞인다 (2026-10-27)
                # 둘째 강조색. 없으면 accent — 알약 라벨·Colab 칸 표시처럼 눈을 끌 자리에만 쓴다
                "highlight": pal.get("highlight", pal["accent"]),
                "dark": pal.get("dark", f),             # 밝은 장 안의 어두운 띠·강조 카드
@@ -273,6 +276,9 @@ def assert_plate_ok(w: float, h: float, has_text: bool, kind: str, spec=None):
         assert has_text, "활자를 담지 않는 채움 사각형은 생성 금지"
     elif kind in ("hero_rule", "table_rule", "connector"):
         pass                      # 두께는 스펙의 rules 그룹이 강제한다
+    elif kind == "bar":
+        # 막대는 크기가 곧 데이터다 — 장식 도형이 아니다. 글자는 막대 위·아래에 따로 붙는다
+        assert w > 0 and h > 0, "막대 크기가 0"
     else:
         raise ValueError(f"허용되지 않은 사각형 종류: {kind}")
 
@@ -345,6 +351,11 @@ def patch_theme(path: str, fonts: dict):
                               f'<a:font script="Hang" typeface="{head}"/></a:majorFont>')
                 x = x.replace("</a:minorFont>",
                               f'<a:font script="Hang" typeface="{body}"/></a:minorFont>')
+                # python-pptx 기본 테마의 효과 스타일 2·3번은 그림자다. 도형마다 <a:effectLst/> 로 끄고 있어
+                # 파워포인트에서는 안 보이지만, LibreOffice 렌더는 테마 그림자를 그려 검수 PNG의 판·카드가
+                # 그림자 진 것처럼 나온다(2026-10-27 점검). 테마에서 지워 어느 앱에서나 같게 한다
+                x = re.sub(r"<a:effectStyle>.*?</a:effectStyle>",
+                           "<a:effectStyle><a:effectLst/></a:effectStyle>", x, flags=re.S)
                 data = x.encode("utf-8")
             out.writestr(n, data)
     src.close()
@@ -718,6 +729,10 @@ class Deck:
     def plate(self, s, x, y, w, h, color="figure"):
         """채움 판. 짧은 변 >= 32 이고 반드시 활자를 담을 때만 허용된다."""
         return self._rect(s, x, y, w, h, color, "plate", True)
+
+    def bar(self, s, x, y, w, h, color="muted"):
+        """막대 하나 — 데이터 표시라 모서리는 직각이다(그릇만 둥글다). 값은 막대 위에 따로 적는다."""
+        return self._rect(s, x, y, w, max(h, 0.75), color, "bar", False)
 
     def hero_rule(self, s, x, y, w):
         """data 히어로 밑줄. 허용된 구조선 1 — 2pt figure 단색."""

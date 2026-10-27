@@ -123,6 +123,8 @@ def _label_color(d):
     """눈썹·파트 라벨 색. 반전 필드에서 accent 가 바탕과 3:1 이 안 되면 muted 로 바꾼다.
     forest 의 진초록 1F5D42 는 반전 바탕 161C18 위에서 2.2:1 이라 표지 눈썹과 「1부」 라벨이
     사라졌다(2026-10-17 소집면담00·소집면접00). 밝은 장과 Dive(파랑 1B7FD4) 는 그대로 accent."""
+    if d.spec.get("label_color") == "muted":   # talk — 강조색은 데이터에서 짚는 곳에만 쓴다(2026-10-27)
+        return "muted"
     return "accent" if contrast(d.c("accent"), d.c("ground")) >= 3.0 else "muted"
 
 
@@ -133,7 +135,11 @@ def cover(d, s, m, sl):
         d.text(s, "micro", col_x(1), g.eyebrow_y, span_w(8), 15, sl["eyebrow"],
                color=_label_color(d), tag="eyebrow")
     meta = _paras(sl, "meta")
-    mh = g.bh("\n".join(meta), span_w(6), "small") if meta else 0
+    # 표지 아래 줄의 크기·색은 프로파일이 정한다. talk 는 발표자 이름 한 줄을 lead 크기 먹색으로 —
+    # 사용자가 표지에서 논문 부제·날짜 줄을 지우고 이름만 제목 바로 아래 남겼다(2026-10-27)
+    CV = d.spec.get("cover") or {}
+    mst, mcol = CV.get("meta_style", "small"), CV.get("meta_color", "muted")
+    mh = g.bh("\n".join(meta), span_w(6), mst) if meta else 0
     title = _t(sl, "title") or m.get("title", "")
     th = g.bh(title, span_w(9), "cover")
     total = th + (g.gap + mh if mh else 0)
@@ -141,8 +147,8 @@ def cover(d, s, m, sl):
     y_meta = y_title + th + g.gap
     d.text(s, "cover", col_x(1), y_title, span_w(9), th, title.split("\n"), tag="title")
     if meta:
-        d.text(s, "small", col_x(1), y_meta, span_w(6), mh, meta,
-               color="muted", tag="meta")
+        d.text(s, mst, col_x(1), y_meta, span_w(6), mh, meta,
+               color=mcol, tag="meta")
 
 
 def closing(d, s, m, sl):
@@ -192,10 +198,13 @@ def _closing_qa(d, s, g, sl):
     th = g.bh(title, tw, "cover")
     label = sl.get("label") or ""
     st_s = d.spec["styles"]["small"]
-    ph = SH["eyebrow_chip_h"] if label else 0
+    ph = (22 if d.spec.get("label_color") == "muted" else SH["eyebrow_chip_h"]) if label else 0
     gap = SH["qa_label_gap"] if label else 0
     top = round(mid - (ph + gap + th) / 2)
-    if label:
+    plain = d.spec.get("label_color") == "muted"     # talk — 알약 없이 옅은 글 한 줄(강조색은 데이터에만)
+    if label and plain:
+        d.text(s, "small", col_x(1), top, tw, ph, label, color="muted", anchor="middle", tag="qa-label")
+    elif label:
         pw = block_w(label, st_s, d.spec["fonts"]["body"]) + 2 * SH["qa_label_pad_x"]
         # 알약 글자색은 대비로 고른다 — 반전 필드에서 ground 는 어둡고 accent 도 어두울 수 있다
         # 둘째 강조색(highlight)이 있으면 그것 — Dive 질문 시간은 노란 알약에 어두운 글자였다. 없으면 accent
@@ -232,7 +241,8 @@ def section(d, s, m, sl):
         th = g.bh(title, span_w(9), "cover")
         ty = SH["part_title_y"]
         d.text(s, "cover", col_x(1), ty, span_w(9), th, title.split("\n"), tag="title")
-        d.hero_rule(s, col_x(1), ty + th + SH["part_rule_gap"], SH["part_rule_w"])
+        if SH.get("part_rule_w", 0) > 0:       # talk 프로파일은 0 — 제목 밑 짧은 선 없이 어두운 장 자체가 파트 표시다
+            d.hero_rule(s, col_x(1), ty + th + SH["part_rule_gap"], SH["part_rule_w"])
         return
     if sl.get("number"):
         d.text(s, "display", col_x(1), g.eyebrow_y, span_w(3), 46,
@@ -389,7 +399,77 @@ def cards(d, s, m, sl):
     return mode
 
 
+def _ledger(d, s, x, y, w, rows, *, bottom=None, label=None, note=None, row_h=None):
+    """줄 표 — 왼쪽 이름(옅게) · 오른쪽 값(크게). `data` 의 종속 숫자와 `bars` 의 옆 표가 쓴다.
+    머리(label)가 있으면 그 아래 먹선 하나, 줄마다 아래 가는 선(마지막 줄 포함).
+    2026-10-27 — 큰 강조색 숫자 하나 + 세로선 + 작은 숫자 더미를 「구림」이라 해서 바꾼 배치다.
+    rows: [(이름, 값, 단위)]. 반환값은 마지막 선의 y."""
+    if not rows:
+        return y
+    hdr = 0.0
+    if label:
+        hdr = 30.0
+        d.text(s, "lead", x, y, w * 0.6, 24, str(label), font_key="head", anchor="middle", tag="ledger-head")
+        if note:
+            d.text(s, "small", x + w * 0.6, y, w * 0.4, 24, str(note), color="muted", align="right",
+                   anchor="middle", tag="ledger-note")
+    top = y + hdr
+    d.hero_rule(s, x, top, w)
+    n = len(rows)
+    rh = row_h or ((bottom - top) / n if bottom else 56.0)
+    rh = max(40.0, rh)
+    st_v = d.spec["styles"]["h1"]
+    for i, (name, val, unit) in enumerate(rows):
+        ry = top + i * rh
+        vw = block_w(str(val), st_v, d.spec["fonts"][st_v["font"]]) + (
+            block_w(" " + str(unit), d.spec["styles"]["small"], d.spec["fonts"]["body"]) if unit else 0)
+        d.text(s, "body", x, ry, max(60.0, w - vw - 16), rh, str(name or ""), color="muted",
+               anchor="middle", tag="ledger-label")
+        d.text(s, "h1", x, ry, w, rh, str(val), align="right", anchor="middle",
+               suffix=unit, suffix_style="small", tag="ledger-value")
+        d.table_rule(s, x, ry + rh - 0.5, w)
+    return top + n * rh
+
+
 def data(d, s, m, sl):
+    """숫자 장. 첫 항목이 히어로(먹색 큰 숫자 + 설명), 나머지는 오른쪽 줄 표로 종속시킨다.
+    히어로와 줄 표는 **같은 높이의 먹선에서 함께 시작**한다 — 두 덩어리가 한 장의 표처럼 읽힌다.
+    히어로 숫자를 강조색으로 칠하지 않는다(그 장의 주인공은 이미 크기로 드러난다). 칠할 뜻이 있을 때만
+    `highlight: true`. 옛 배치(강조색 히어로 + 떠 있는 밑줄 + 세로로 쌓인 작은 숫자)는 2026-10-27 에 바꿨다."""
+    if d.spec.get("data_style") == "classic":
+        return _data_classic(d, s, m, sl)
+    g = L(d)
+    g.head(s, sl, span=9)
+    items = sl.get("items") or []
+    if not items:
+        return
+    hero, subs = items[0], items[1:6]
+    hw = span_w(6) if subs else span_w(9)
+    hh = g.bh(str(hero.get("value", "")), hw, "hero")
+    cap = hero.get("caption", "")
+    cw = span_w(5) if subs else span_w(7)
+    ch = g.bh(cap, cw, "lead") if cap else 0
+    hero_total = 18 + hh + (12 + ch if ch else 0)
+    row_h = 58.0
+    led_total = len(subs) * row_h
+    total = max(hero_total, led_total)
+    y = resolve_y(total, d.spec, top=g.block)
+    d.hero_rule(s, col_x(1), y, hw)
+    d.text(s, "hero", col_x(1), y + 18, hw, hh, str(hero.get("value", "")),
+           color="accent" if hero.get("highlight") else "figure",
+           suffix=hero.get("unit"), suffix_style="h1",
+           suffix_color="accent" if hero.get("highlight") else "figure", tag="hero")
+    if ch:
+        d.text(s, "lead", col_x(1), y + 18 + hh + 12, cw, ch, cap, color="ink2", tag="hero-cap")
+    if subs:
+        _ledger(d, s, col_x(8), y, span_w(5),
+                [(it.get("caption", ""), it.get("value", ""), it.get("unit")) for it in subs],
+                row_h=max(row_h, total / len(subs)))
+
+
+def _data_classic(d, s, m, sl):
+    """옛 data 배치(강조색 히어로 + 히어로 밑줄 + 오른쪽에 쌓인 작은 숫자). editorial 명세 보존본만 쓴다
+    (`data_style: classic`). 다른 프로파일은 2026-10-27 의 새 배치."""
     g = L(d)
     g.head(s, sl, span=7)
     items = sl.get("items") or []
@@ -417,6 +497,65 @@ def data(d, s, m, sl):
         if it.get("caption"):
             d.text(s, "small", col_x(8), sy + 38, span_w(5), 20, it["caption"],
                    color="muted", tag="sub-label")
+
+
+def bars(d, s, m, sl):
+    """막대 비교 — 크기가 곧 데이터인 막대 2~6개. 값은 **막대 위에 직접** 적고(범례·구석 숫자 없음),
+    볼 막대 하나(`highlight`, 0부터)만 강조색, 나머지는 옅은 먹. 막대는 직각(데이터 표시), 이름은 축 아래.
+    `side:` 를 주면 오른쪽에 줄 표(_ledger)를 둔다 — 비교할 것은 막대로, 나머지 사실은 표로.
+    머리(label)와 옆 표 머리는 같은 높이, 두 덩어리의 바닥선도 같은 높이다.
+
+      - layout: bars
+        title: "검증 성능과 비용"
+        label: "판정 오류율 (EER)"     # 막대 머리. note 는 오른쪽 작은 글("낮을수록 정확")
+        note: "낮을수록 정확"
+        items: [{label: "질문 8칸", value: 10.6, text: "10.6%"}, {label: "질문 40칸 전부", value: 7.3, text: "7.3%"}]
+        highlight: 1
+        side: {label: "규모와 비용", rows: [{label: "실험한 모델", value: "165", unit: "개"}]}
+    """
+    g = L(d)
+    g.head(s, sl, span=12)
+    items = (sl.get("items") or [])[:6]
+    if len(items) < 2:
+        warn(f"slide {d._slide_i}: bars 는 막대 2개부터 — 하나면 data 를 써라")
+        if not items:
+            return
+    side = sl.get("side") or {}
+    hi = sl.get("highlight")
+    x0, cw = col_x(1), span_w(6 if side else 12)
+    top = max(g.block, g.title_bottom + 36)
+    base = g.bottom - 28                         # 축 아래 이름 한 줄 자리
+    hdr = 0.0
+    if sl.get("label"):
+        hdr = 30.0
+        d.text(s, "lead", x0, top, cw * 0.62, 24, str(sl["label"]), font_key="head", anchor="middle",
+               tag="chart-head")
+        if sl.get("note"):
+            d.text(s, "small", x0 + cw * 0.62, top, cw * 0.38, 24, str(sl["note"]), color="muted",
+                   align="right", anchor="middle", tag="chart-note")
+        d.hero_rule(s, x0, top + hdr, cw)
+    vals = [float(it.get("value", 0)) for it in items]
+    vmax = float(sl.get("max") or max(vals) / 0.9 or 1)
+    lab_h = 34.0                                 # 막대 위 값 글자 자리
+    H = base - (top + hdr + 14 + lab_h)
+    n = len(items)
+    bw = min(span_w(2), cw / (n * 1.5 - 0.5))
+    gap = bw * 0.5
+    for i, (it, v) in enumerate(zip(items, vals)):
+        x = x0 + i * (bw + gap)
+        h = max(0.0, v / vmax) * H
+        on = hi is not None and i == hi
+        d.bar(s, x, base - h, bw, h, "accent" if on else ("faint" if hi is not None else "muted"))
+        txt = str(it.get("text") or (f"{it.get('value')}{it.get('unit', '')}"))
+        d.text(s, "h2", x, base - h - lab_h, bw + gap * 0.9, lab_h - 4, txt,
+               color="accent" if on else "figure", anchor="bottom", tag="chart-value")
+        d.text(s, "body", x, base + 8, bw + gap * 0.9, 20, str(it.get("label", "")), color="muted",
+               tag="chart-cat")
+    d.table_rule(s, x0, base, cw)
+    if side:
+        rows = [(r.get("label", ""), r.get("value", ""), r.get("unit")) for r in side.get("rows", [])]
+        _ledger(d, s, col_x(8), top, span_w(5), rows, bottom=base,
+                label=side.get("label"), note=side.get("note"))
 
 
 def quote(d, s, m, sl):
@@ -1349,10 +1488,12 @@ def _table_tint(d, s, m, sl):
     y0 = top + max(0.0, (g.bottom - top - total) / 2)
     xs = [x0 + sum(widths[:k]) for k in range(n)]
     d.plate(s, x0, y0, W, head_h, color="accent_tint")
+    # 머리 글자색 — house 는 강조색(사용자가 고친 표 2026-10-25), talk 은 먹색: 강조색은 결과 열(highlight)에만
+    hc = "figure" if d.spec.get("label_color") == "muted" else "accent"
     for k, h in enumerate(heads[:n]):
         al = aligns[k]
         d.text(s, "body", xs[k] + (pad if al == "left" else 0), y0, widths[k] - (2 * pad if al == "left" else 0), head_h,
-               str(h), color="accent", align=al, anchor="middle", exact_center=True, font_key="head", tag="row-th")
+               str(h), color=hc, align=al, anchor="middle", exact_center=True, font_key="head", tag="row-th")
     for i, row in enumerate(rows):
         y = y0 + head_h + i * row_h
         for k, cell in enumerate(row[:n]):
@@ -1373,7 +1514,10 @@ def _table_tint(d, s, m, sl):
 
 def table(d, s, m, sl):
     T = d.spec["table"]
-    if (sl.get("style") or (m or {}).get("table_style")) == "tint":
+    # 기본은 옅은 머리 띠 표다(2026-10-27). 짙은 머리 띠 + 오른쪽 정렬 값은 「정렬이 안 된 느낌」이라는
+    # 지적(2026-10-25)을 받은 쪽이라 이제 `style: dark` 로 적을 때만 그린다
+    style = sl.get("style") or (m or {}).get("table_style") or d.spec.get("table", {}).get("default_style", "tint")
+    if style != "dark":
         return _table_tint(d, s, m, sl)
     g = L(d)
     g.head(s, sl, span=9)
@@ -1465,7 +1609,7 @@ LAYOUTS = {"cover": cover, "closing": closing, "section": section, "chain": chai
            "timeline": timeline, "stair": stair, "compare": compare, "nest": nest,
            "code": code, "code_explain": code_explain, "divided_pair": divided_pair,
            "cellgrid": cellgrid, "gallery": gallery,
-           "data": data, "quote": quote, "table": table,
+           "data": data, "bars": bars, "quote": quote, "table": table,
            "image_split": image_split, "image_full": image_full,
            "badge_row": badge_row, "recap": recap, "deadline": deadline}
 INVERTED = {"section", "closing", "recap", "deadline"}
