@@ -1,7 +1,7 @@
 # 수업 덱 예제 — 매 차시 같은 뼈대로 열고 닫는 강의 덱 (Dive 시리즈 구성)
 # 빌드:  build.py references/outline.lesson.yaml --spec references/deck-spec.dive.yaml
 # 노트북: notebook.py references/lesson/cells2.py --out references/lesson/nb2   (빌드 전에 한 번, 빌드 후에 한 번)
-# 가상 수업이다. 실제 강의 아웃라인은 강의 폴더에 두고 공개 저장소에 올리지 않는다.
+# 가상 수업이다. 실제 강의 아웃라인은 강의 폴더에 두고 저장소에 올리지 않는다.
 meta:
   density: speaker
   page_numbers: true

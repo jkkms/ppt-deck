@@ -9,7 +9,7 @@
   principles.py log       반영 이력
 
 문서 경로와 스냅숏은 저장소 밖(.principles/, gitignore)에 둔다 —
-사용자 개인 원칙 문서라 공개 저장소에 올리지 않는다.
+사용자 개인 원칙 문서라 저장소에 올리지 않는다.
 """
 from __future__ import annotations
 import argparse, datetime, difflib, hashlib, json, os, re, sys
