@@ -921,3 +921,6 @@ $PY ${CLAUDE_SKILL_DIR}/scripts/reconcile.py deploy out/deck.pptx <배포 경로
 - "읽기용으로" → `meta.density: reading`. 불릿 한도와 본문 크기가 같이 바뀌므로 **린트를 다시 돌린다.**
 - "슬라이드 추가" → 추가 후 반드시 리듬 규칙(3연속 금지) 재확인.
 - "이 레이아웃이 필요해" → `build.py`에 함수를 추가하고 `LAYOUTS`에 등록. 좌표는 `g.x()/g.w()`로만 쓰고 크기는 `deck-spec.yaml`의 styles에서만 가져온다.
+- "다른 사람 덱과 합쳐 줘" → 상대 파일은 건드리지 않고 **zip 안의 내 슬라이드 XML 과 노트 XML 만** 교체해 새 파일로 저장한다. 상대 장은 바이트 비교로 그대로인지 확인한다.
+  - **슬라이드 순서와 경로를 python-pptx 로 구하지 않는다.** `Presentation.slides` 는 메모리에서 파트 이름을 순서대로 바꾼다. 파일 이름과 순서가 다른 PowerPoint 저장본에서 `part.partname` 으로 zip 을 고치면 엉뚱한 장이 덮인다(실제 사고, 글자 대조로 잡음). `ppt/presentation.xml` 의 `sldIdLst` 와 rels 를 직접 읽는다.
+  - 고친 뒤 순서대로 글자와 노트를 원본과 대조한다. 배포 파일명은 새로 짓고, 상대가 열어 둔 원본에 덮어쓰지 않는다.
