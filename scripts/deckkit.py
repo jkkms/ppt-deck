@@ -836,6 +836,13 @@ class Deck:
         tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
         tf.vertical_anchor = {"top": MSO_ANCHOR.TOP, "middle": MSO_ANCHOR.MIDDLE,
                               "bottom": MSO_ANCHOR.BOTTOM}[anchor]
+        # 중간 정렬 상자의 세로 중심 보정(2026-11-10, GDGoC 세미나 v6 PDF 947개 실측).
+        # PowerPoint 는 행간 배수의 여분을 줄 위쪽에 몰아 넣어, 중간 정렬한 글이 (행간-1)×크기/2 만큼 아래로 처진다
+        # (16pt·1.45 → +3.3pt, 13pt·1.4 → +2.4pt, 행간 1.0 → +0.2pt). 한 줄짜리는 행간을 1.0 으로 두고(보이는 차이 없음),
+        # 여러 줄은 행간을 지키고 아래 여백으로 잉크 중심을 올린다(여러 줄 실측 평균이 한 줄의 약 0.65배).
+        mid_single = anchor == "middle" and len([q for q in paras if str(q) != ""]) == 1
+        if anchor == "middle" and not mid_single and not exact_center and st["leading"] > 1.0:
+            tf.margin_bottom = Pt(0.65 * (st["leading"] - 1.0) * st["size"])
 
         for i, ptext in enumerate(paras):
             p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
@@ -843,7 +850,7 @@ class Deck:
                            "center": PP_ALIGN.CENTER}[align]
             # 정확 중앙 모드에서는 행간을 1.0 으로 둔다. leading 배수를 주면
             # PowerPoint 가 여분을 라인 위쪽에 몰아 넣어 글자가 아래로 내려간다.
-            p.line_spacing = 1.0 if exact_center else st["leading"]
+            p.line_spacing = 1.0 if (exact_center or mid_single) else st["leading"]
             if space_after and i < len(paras) - 1:
                 p.space_after = Pt(space_after)
             if str(ptext) == "":
