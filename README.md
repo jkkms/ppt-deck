@@ -164,11 +164,12 @@ $PY scripts/lint.py       outline.yaml                    # 내용·리듬의 AI
 $PY scripts/build.py      outline.yaml -o out/deck.pptx   # 빌드 + 기하 자기검증
 $PY scripts/svgpreview.py out/deck.manifest.json --png --sheet   # 시각 검수
 $PY scripts/validate.py   out/deck.pptx                   # 파일 무결성
+$PY scripts/budget.py     out/deck.pptx --minutes 15      # 발표 시간 대비 분량
 ```
 
 <br>
 
-## 검수가 네 단계입니다
+## 검수가 다섯 단계입니다
 
 | 단계 | 무엇을 본다 | 도구 |
 | --- | --- | --- |
@@ -176,6 +177,7 @@ $PY scripts/validate.py   out/deck.pptx                   # 파일 무결성
 | **기하** | 넘침 · 겹침 · 캔버스 이탈 · 불릿 줄바꿈 · 이미지가 글자를 덮는가 | `build.py` |
 | **시각** | 구성 · 균형 · 색 · 여백 | `svgpreview.py` |
 | **파일** | XML · 관계 · 콘텐츠타입 · 글꼴 · endParaRPr · 임베딩 구조 | `validate.py` |
+| **분량** | 본편 장 수 ≤ 발표 분 × 1.5 · 노트 「말할 것」 ≤ 분 × 280자(「알아 둘 것」·「예상 질문」은 제한 없음) | `budget.py` |
 
 `svgpreview.py`는 **설치된 Pretendard TTF를 직접 읽어 PIL로 그립니다.** LibreOffice도 PowerPoint도 권한도 필요 없습니다. `--sheet`는 전체를 한 장에 늘어놓은 컨택트시트를 만듭니다.
 
@@ -222,13 +224,14 @@ scripts/build.py              레이아웃 10종 + 기하 자기검증
 scripts/lint.py               콘텐츠 AI 티 린터
 scripts/svgpreview.py         매니페스트 → SVG/PNG
 scripts/validate.py           파일 무결성
+scripts/budget.py             발표 시간 대비 분량(청중 몫만 센다)
 scripts/metrics.py            글리프 폭 추출
 ```
 
 ### 설계 계약
 
 1. 색·크기·좌표는 전부 `deck-spec.yaml`에서 파생된다. 예쁘게 하려고 코드에 숫자를 박지 않는다
-2. 넘치면 **글자를 줄이지 않고 내용을 쪼갠다.** 타입스케일 이탈이 AI 티의 최대 원인이다
+2. 넘치면 **글자를 줄이지 않고 내용을 쪼갠다** — 장 수는 발표 시간 예산 안에서. 타입스케일 이탈이 AI 티의 최대 원인이다
 3. 렌더해서 눈으로 보기 전에는 완료가 아니다
 4. 허전하다고 줄을 하나 긋지 않는다. 허전하면 여백이 잘못된 것이다
 
