@@ -570,7 +570,22 @@ def bars(d, s, m, sl):
     hi = sl.get("highlight")
     x0, cw = col_x(1), span_w(6 if side else 12)
     top = max(g.block, g.title_bottom + 36)
-    base = g.bottom - 28                         # 축 아래 이름 한 줄 자리
+    # 막대 자리(가로)를 먼저 정하고, 축 아래 이름이 몇 줄로 접히는지 재서 그만큼 축을 올린다.
+    # 예전엔 이름 칸을 한 줄(20pt)로 고정해 두 줄짜리 이름(「Transformer / base」)이 중간 정렬로 위로 넘쳐
+    # 막대 아래 끝을 덮었다(2026-11-14 논문 스터디 덱, PowerPoint 렌더)
+    n = len(items)
+    bw = min(span_w(2), cw / (n * 1.5 - 0.5))
+    gap = bw * 0.5
+    gx = x0 + max(0.0, (cw - (n * bw + (n - 1) * gap)) / 2)
+    lim = (col_x(8) - 12) if side else content_r()
+    halves = []
+    for i in range(n):
+        cx = gx + i * (bw + gap) + bw / 2
+        halves.append(min((bw + gap * 0.9) / 2, cx - x0, lim - cx))
+    st_b = d.spec["styles"]["body"]
+    lab_cat = max(block_h(str(it.get("label", "")), 2 * hf, st_b, d.spec["fonts"][st_b["font"]])
+                  for it, hf in zip(items, halves))
+    base = g.bottom - 8 - lab_cat                # 축 아래 이름 자리(접힌 줄 수만큼)
     hdr = 0.0
     if sl.get("label"):
         hdr = 30.0
@@ -584,12 +599,8 @@ def bars(d, s, m, sl):
     vmax = float(sl.get("max") or max(vals) / 0.9 or 1)
     lab_h = 34.0                                 # 막대 위 값 글자 자리
     H = base - (top + hdr + 14 + lab_h)
-    n = len(items)
-    bw = min(span_w(2), cw / (n * 1.5 - 0.5))
-    gap = bw * 0.5
-    # 막대 묶음은 칸 가운데에 둔다 — 2026-10-27 사용자 편집(발표 덱 14쪽): 왼쪽 끝에 붙어 있던 막대를 안쪽으로 옮기고
+    # 막대 묶음은 칸 가운데에 둔다(gx, 위에서 정함) — 2026-10-27 사용자 편집(발표 덱 14쪽): 왼쪽 끝에 붙어 있던 막대를 안쪽으로 옮기고
     # 값을 막대 가운데로 맞췄다. 막대가 칸을 다 채우면(옆 표 없이 5개 이상) 묶음 폭 = 칸 폭이라 그대로 왼쪽 끝에서 시작한다
-    gx = x0 + max(0.0, (cw - (n * bw + (n - 1) * gap)) / 2)
     for i, (it, v) in enumerate(zip(items, vals)):
         x = gx + i * (bw + gap)
         h = max(0.0, v / vmax) * H
@@ -600,11 +611,10 @@ def bars(d, s, m, sl):
         # 칸 왼쪽 끝과 오른쪽 한계를 넘지 않게 자른다(4e81248 의 오른쪽 자르기를 왼쪽에도).
         # 오른쪽 한계는 옆 표가 있으면 옆 표 앞(칸 사이 빈 곳까지 써서 「Snowball」 같은 이름이 접히지 않게), 없으면 오른쪽 여백
         cx = x + bw / 2
-        lim = (col_x(8) - 12) if side else content_r()
-        half = min((bw + gap * 0.9) / 2, cx - x0, lim - cx)
+        half = halves[i]
         d.text(s, "h2", cx - half, base - h - lab_h, 2 * half, lab_h - 4, txt,
                color="accent" if on else "figure", align="center", anchor="bottom", tag="chart-value")
-        d.text(s, "body", cx - half, base + 8, 2 * half, 20, str(it.get("label", "")), color="muted",
+        d.text(s, "body", cx - half, base + 8, 2 * half, lab_cat, str(it.get("label", "")), color="muted",
                align="center", tag="chart-cat")
     d.table_rule(s, x0, base, cw)
     if side:
