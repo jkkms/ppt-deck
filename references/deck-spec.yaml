@@ -234,3 +234,9 @@ rhythm:
   max_same_layout_run: 2
   max_same_cards_mode_run: 1
   page_number_from: 2
+
+# 마지막(질문 시간 · 다음 일정) 장 — 사용자가 라벨 · 제목 덩어리를 세로 가운데보다 올리고 라벨과 제목 사이를 좁혔다
+# (2026-11-18 면접 마지막 정리 덱, PowerPoint 실측: 라벨 위 197.5pt · 제목 위 243.55pt). 한 줄 제목이면 그 자리 그대로 나온다
+closing:
+  lift: 23.025        # 세로 가운데보다 이만큼 위
+  label_gap: 16.05    # 알약 아래 → 제목(shapes.qa_label_gap 20 대신)

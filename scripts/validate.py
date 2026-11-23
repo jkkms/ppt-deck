@@ -124,6 +124,32 @@ def main(path):
                      "PowerPoint 는 OTF(CFF) 임베딩을 거부한다. Pretendard 는 "
                      "public/static/alternative 의 TTF 빌드를 설치하라")
 
+    # 쪽 번호가 글상자에 박혀 있으면 사용자가 장을 지우거나 옮긴 뒤 번호가 밀린다
+    # (2026-11-18 마지막 정리 덱: 한 장을 지운 뒤 5~10쪽에 6~11이 남아 PDF 까지 나갔다 — 11/23 발견)
+    try:
+        from pptx import Presentation
+        pr = Presentation(path)
+        W, H = pr.slide_width, pr.slide_height
+        wrong = []
+        for i, s in enumerate(pr.slides, 1):
+            for sh in s.shapes:
+                if not sh.has_text_frame:
+                    continue
+                t = sh.text_frame.text.strip()
+                if not (t.isdigit() and len(t) <= 3):
+                    continue
+                # 오른쪽 위 · 아래 모서리(가로 80% 바깥, 세로 12% 띠)의 좁은 글상자만 쪽 번호로 본다 —
+                # 왼쪽 아래 번호 배지(「5」)를 쪽 번호로 잡았었다
+                if sh.width > W * 0.1 or sh.left < W * 0.8 or not (sh.top < H * 0.12 or sh.top + sh.height > H * 0.88):
+                    continue
+                if int(t) != i:
+                    wrong.append(f"{i}쪽에 「{t}」")
+        if wrong:
+            warn("쪽 번호가 장 순서와 다르다 — " + ", ".join(wrong[:6]) + (" …" if len(wrong) > 6 else "")
+                 + " (장을 지우거나 옮긴 뒤에는 번호 글상자를 다시 매겨라)")
+    except ImportError:
+        pass
+
     print(f"ppt-deck validate — {os.path.basename(path)}  "
           f"(슬라이드 {len(slides)}장 · run {n_runs}개)")
     for f in FAIL: print("  ✗ " + f)

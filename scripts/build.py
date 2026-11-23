@@ -235,8 +235,13 @@ def _closing_qa(d, s, g, sl):
     st_s = d.spec["styles"]["small"]
     ph = (22 if d.spec.get("label_color") == "muted" else SH["eyebrow_chip_h"]) if label else 0
     gap = SH["qa_label_gap"] if label else 0
-    top = round(mid - (ph + gap + th) / 2)
     CL = d.spec.get("closing") or {}
+    if label and CL.get("label_gap") is not None:
+        gap = CL["label_gap"]
+    top = round(mid - (ph + gap + th) / 2)
+    if CL.get("lift"):
+        # house: 사용자가 라벨 · 제목 덩어리를 세로 가운데보다 올렸다(2026-11-18 마지막 정리 덱). 맺음말 줄은 그대로 바닥선
+        top = mid - (ph + gap + th) / 2 - CL["lift"]
     if CL.get("title_y") is not None and not label:
         # talk: 「감사합니다」 한 줄을 파트 표지 제목과 같은 높이에(2026-10-27 사용자 — 라벨 · 맺음말 · 쪽 번호를 지움)
         top = CL["title_y"]
