@@ -221,6 +221,9 @@ references/deck-spec.yaml     디자인 토큰 단일 원천 — 색·폰트·�
 references/font-metrics.json  Pretendard 실측 글리프 폭 (한글 0.8643em)
 scripts/deckkit.py            엔진 — 그리드, ea 타이프페이스, endParaRPr, 테마 패치, 이미지
 scripts/build.py              레이아웃 10종 + 기하 자기검증
+scripts/house_ext.py          house 시리즈 확장 — 부제 · 위 쪽 번호 · 서명 · 결론 띠 · rows · columns
+scripts/house_panels.py       house 판 카드 레이아웃(pcards · prows · plist · ppanel · pgrid · pcol · pfig · orig · ask) — 빌드 진입점
+scripts/sheet.py              직접 조판한 A4 문항지(HTML → 크롬 PDF)와 덱 조각
 scripts/lint.py               콘텐츠 AI 티 린터
 scripts/svgpreview.py         매니페스트 → SVG/PNG
 scripts/validate.py           파일 무결성

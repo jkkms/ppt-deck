@@ -253,6 +253,14 @@ def main(mpath, only, sheet, png=False, scale=1.2):
     os.makedirs(outdir, exist_ok=True)
     want = only or range(1, n + 1)
     made = []
+    # 같은 out/ 에서 여러 덱을 빌드하면 앞 덱의 slide-NN 이 남아 이번 덱 것처럼 보인다(2026-11-23: 12장 덱 옆에
+    # 41장 덱의 13~41번이 남아 있었다). 이번 덱에 없는 번호는 지운다.
+    for sub, ext in (("svg", ".svg"), ("png", ".png")):
+        dd = os.path.join(os.path.dirname(os.path.abspath(mpath)), sub)
+        if os.path.isdir(dd):
+            for f in os.listdir(dd):
+                if f.startswith("slide-") and f.endswith(ext) and f[6:-len(ext)].isdigit() and int(f[6:-len(ext)]) > n:
+                    os.remove(os.path.join(dd, f))
     for i in want:
         p = os.path.join(outdir, f"slide-{i:02d}.svg")
         open(p, "w", encoding="utf-8").write(render(man, i))

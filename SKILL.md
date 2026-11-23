@@ -25,6 +25,8 @@ PY=${CLAUDE_SKILL_DIR}/.venv/bin/python      # python-pptx · pyyaml · pymupdf 
 | `scripts/verify_coords.py out/deck.manifest.json` | editorial 좌표(HANDOFF §8)와 0pt 대조 |
 | `scripts/test_color.py` | HANDOFF §5.2 색 기대값(hex 8 + 대비 8) 고정 — 정본은 `references/editorial/HANDOFF.md` |
 | `scripts/build.py outline.yaml -o out/deck.pptx` | 빌드 + 기하 자기검증(넘침·이탈·불릿 줄바꿈) |
+| `scripts/house_panels.py outline.yaml -o out/deck.pptx` | **house 판 카드 덱 빌드** — build.py + `house_ext.py`(부제 · 위 쪽 번호 · 서명 · 결론 띠 · rows · columns) + 판 카드(pcards · prows · plist · ppanel · pgrid · pcol · pfig · orig · ask · ctimeline). 아래 「house 판 카드 덱」 |
+| `scripts/sheet.py`(모듈) | 직접 조판한 A4 문항지(HTML → 크롬 PDF)와 같은 글로 자른 `orig` 장 조각 · 공통 배율 · orig 장 YAML |
 | `scripts/preview.py outline.yaml --slides 1,5` | 팔레트 3종 비교 PNG |
 | `scripts/svgpreview.py out/deck.manifest.json --png --sheet` | **검수 1순위.** 매니페스트 → SVG/PNG. 외부 앱·권한 없이 실제 Pretendard 파일로 그린다 |
 | `scripts/validate.py out/deck.pptx` | 파일 무결성 — XML·관계·콘텐츠타입·글꼴(latin/ea/cs)·endParaRPr·테마 |
@@ -38,7 +40,7 @@ PY=${CLAUDE_SKILL_DIR}/.venv/bin/python      # python-pptx · pyyaml · pymupdf 
 | `scripts/lint_pptx_text.py deck.pptx` | 다른 도구로 만든 덱의 문구 검사 |
 
 `references/deck-spec*.yaml`이 디자인 토큰 단일 원천(프로파일마다 하나), `references/outline.example.yaml`(일반)과
-`references/outline.lesson.yaml`(수업 덱)이 아웃라인 문법의 레퍼런스다.
+`references/outline.lesson.yaml`(수업 덱) · `references/outline.house_panels.yaml`(house 판 카드 덱)이 아웃라인 문법의 레퍼런스다.
 
 ## 프로파일 — 시리즈마다 하나, 섞지 않는다
 
@@ -643,14 +645,16 @@ $PY scripts/notebook.py 강의폴더/cells3.py --out 강의폴더/nb3        # 3
   손으로 옮겨 적지 않는다
 - 검사는 옵션으로 범위를 넓힌다: `lint_deck.py out/deck.pptx --spec spec.yaml --allow-kind bar --free-tag chart-`.
   검사 스크립트를 복사해 문자열을 바꿔 끼우지 않는다
-- 같은 확장을 다른 덱에서 또 쓰게 되면 그때 스킬로 올린다
+- 같은 확장을 다른 덱에서 또 쓰게 되면 그때 스킬로 올린다 — 면담 · 면접 시리즈의 `ext.py` · `ext_mock.py` 는 열세 덱에서 쓰여
+  2026-11-23 `scripts/house_ext.py` · `scripts/house_panels.py` 로 올렸다. 강의 폴더에는 옛 빌드 명령이 그대로 돌도록 스킬을 부르는
+  얇은 껍데기만 남겼다. 올리기 전후로 열세 덱을 다시 빌드해 슬라이드 XML 이 바이트까지 같은지 확인했다(문서 속성만 다름)
 
 **옛 틀(pptxgenjs)로 만든 house 시리즈 덱을 이 엔진으로 옮길 때** (2026-10-17, 면담·면접 00 덱 두 개 35장·18장)
 - 글과 노트는 배포본에서 그대로 뽑아 아웃라인에 옮긴다. **장 수와 순서는 바꾸지 않는다** — 수업 기록과 다른 문서가
   쪽 번호로 가리킨다. 바꾸는 것은 배치뿐
 - 그 시리즈는 모든 장에 제목 아래 부제가 있고 「제목 + 두 문장 설명」 세 줄이 기본 단위다. 강의 폴더 `ext.py` 에
   `subtitle`(모든 레이아웃) · `rows`(줄) · `columns`(칸) · 결론 띠(진초록 면 + 흰 글씨) · 오른쪽 위 쪽 번호를 두었다.
-  같은 「배지 + 세 줄」 장이 30장 이어지던 덱을 rows ↔ columns 교대 + timeline · chain · compare · stair · statement 로 나눴다.
+  (지금은 `scripts/house_ext.py`) 같은 「배지 + 세 줄」 장이 30장 이어지던 덱을 rows ↔ columns 교대 + timeline · chain · compare · stair · statement 로 나눴다.
   번호 배지는 순서가 있는 장에만, 나머지는 선 아이콘 · ×. 학생 본인 이야기가 든 줄·칸 하나만 들어올린다
 - **좁은 칸(4~5칸) 제목은 `deckkit.line_count`(글자 단위)가 한 줄 모자란다** — 파워포인트·키노트는 한글을 어절에서 끊는다.
   제목이 설명을 덮었다. 확장에서는 어절 단위 + 폭 3% 여유로 높이를 재고(153.2pt 제목이 153.5pt 칸에서 실제로 접혔다),
@@ -675,9 +679,10 @@ $PY scripts/notebook.py 강의폴더/cells3.py --out 강의폴더/nb3        # 3
 **house 시리즈 새 덱 — 판 카드로 담는다** (2026-10-18, 사용자 「디자인 구린 것이 많다 · 질문 박스는 항상 세로 가운데」)
 - 넓은 바탕에 13pt 글 두 줄이 떠 있는 rows/columns 장이 연달아 나오면 「구리다」는 평을 받는다. 그 시리즈가 원래 쓰던
   문법(옅은 accent_tint 판 안에 배지 · 제목 · 설명)으로 담고, **덩어리 전체를 제목 아래 영역의 세로 가운데**에 둔다.
-  강의 폴더 확장 `ext_mock.py` — `pcards`(가로 칸 2~5, 높이는 가장 긴 칸) · `prows`(세로 줄 2~5, 줄마다 글을 세로 가운데) ·
-  `ctimeline`(타임라인 세로 가운데). 판은 모든 칸에 같은 옅은 색, 들어올리는 칸 하나만 진초록
-- **질문 장 = 질문 상자**: 번호 배지 + 출처 한 줄 + 질문(h1)을 판 하나에 담고, 상자를 질문 길이와 상관없이
+  강의 폴더 확장 `ext_mock.py`(지금은 `scripts/house_panels.py`) — `pcards`(가로 칸 2~5, 높이는 가장 긴 칸) · `prows`(세로 줄 2~5, 줄마다 글을 세로 가운데) ·
+  `ctimeline`(타임라인 세로 가운데). 판은 모든 칸에 같은 옅은 색 — 한 칸만 진초록으로 들어올리지 않는다(사용자가 같은 줄 박스 색을 통일함, 「말하지 않을 것 / 대신 말할 것」 같은 대비 장만 예외)
+- **질문 장(`ask`)은 판 없이** 「질문 N · 출처」 한 줄 + 큰 질문(h1)만 둔다(처음엔 번호 배지 + 판이었으나 같은 날 사용자가 판을 뺀 장을
+  「아주 좋다 — PPT 는 저렇게 깔끔해야」라고 했다. 질문은 문장마다 새 줄). 묶음을 질문 길이와 상관없이
   **슬라이드 세로 정중앙**(canvas 높이 / 2)에 둔다. 세 줄이 넘는 긴 질문은 어절 DP 로 줄 길이를 고르게 나눈다
   (기존 균형은 어절 12개까지만 본다). 손 줄바꿈은 상자 폭에서 넘치면 버리고 자동 균형에 맡긴다
 - 판 줄 다섯에 두 줄 설명을 넣으면 하한(495)을 넘는다 — 다섯 줄일 때 설명은 한 줄로. 엔진 `stair` 5단은 위에 붙어 그려져
@@ -700,7 +705,7 @@ $PY scripts/notebook.py 강의폴더/cells3.py --out 강의폴더/nb3        # 3
 
 **같은 스타일, 다른 짜임 — 판 카드 덱의 변주** (2026-10-18, 사용자 「같은 디자인을 계속 반복하면 짜쳐. 스타일은 동일하되 디자인에 변주」)
 - 색 · 글꼴 · 크기 · 반경 · 안여백은 그대로 두고 **짜임만** 바꾼다. 같은 줄 판(`prows`)이 한 덱에 아홉 번 나오자 이 평을 받았다.
-  강의 폴더 확장 `ext_mock.py` 의 변주 5종 — `plist`(판 없는 목록, 줄 사이는 여백으로만) · `ppanel`(큰 판 하나에 여러 줄 — 같은 열 상자 합치기) ·
+  `house_panels.py` 의 변주 5종 — `plist`(판 없는 목록, 줄 사이는 여백으로만) · `ppanel`(큰 판 하나에 여러 줄 — 같은 열 상자 합치기) ·
   `pgrid`(2 × 2 판, 머리는 왼쪽) · `pcol`(판 없는 단, 컬럼 그리드에 맞춤) · `pside`(왼쪽 진초록 판에 핵심 한 문장 + 오른쪽 판 없는 목록 — 맺음 줄이나 부제를 그 문장으로)
 - 이웃한 내용 장끼리 같은 짜임을 피한다. 나란한 시리즈(개념 점검 ① ② ③)도 짜임을 바꾼다
 - 번호는 원 배지가 아니라 **큰 글자 「1.」**(사용자가 직접 바꿈 — 원 안 숫자는 답답하다). 판 없는 짜임에서는 초록 글자
@@ -766,6 +771,85 @@ $PY scripts/notebook.py 강의폴더/cells3.py --out 강의폴더/nb3        # 3
 검사(첫 장 cover, 리듬, 병렬 제목, 글꼴 글리프)는 뺀다. 디자인 원칙(하나만 들어올리기, 한 열에 상자 하나,
 이미지 출처)은 렌더를 보며 따로 확인한다(2026-10-02 소집면접 기출 덱: 결론 띠만 진한 면으로, 「한 마디 더」는 면 없이,
 위아래로 쌓인 두 상자는 한 상자에 선으로, 원본 캡처에 출처 줄).
+
+## house 판 카드 덱 — 레이아웃 · 뼈대 · 마무리 정리 (2026-11-23, 면담 · 면접 시리즈 스물두 덱을 끝내며)
+
+면담 · 면접 대비 수업(2026-09 ~ 11-18)에서 만든 덱 스물두 개를 정리한 절이다. 열세 개(소집면담00 · 소집면접00 · 모의면접00~09 · 추가 문항)는
+이 엔진, 아홉 개(시범수업 셋 · 소집면담01~03 · 소집면접01~03)는 10/4 통합 전 pptxgenjs 로 만들었고 다시 짜지 않았다 — 고칠 일이 생기면
+위 「옛 틀로 만든 house 시리즈 덱을 이 엔진으로 옮길 때」대로 옮긴다. 판 카드 문법 · 줄 간격 · 변주의 원리는 위 「덱 전용 레이아웃 얹기」에 있고,
+여기에는 다음 시리즈를 바로 시작하는 데 필요한 것만 모았다. 예제 `references/outline.house_panels.yaml`.
+
+```
+$PY ${CLAUDE_SKILL_DIR}/scripts/house_panels.py outline.yaml -o out/deck.pptx
+# meta: palette forest · density reading · page_numbers_top: true · table_style: tint · 표지 signature: 서명.png(아웃라인 폴더 기준)
+```
+
+| layout | 쓰는 자리 | 주요 키 |
+| --- | --- | --- |
+| `pcards` | 가로 판 카드 2~5 — 진행 방식 · 요점 셋 · 꼬리 질문 | `items[{title, body(목록), icon \| mark}]` `numbered` `band` `band_top` `foot` `pad_x` `pad_y` |
+| `prows` | 세로 줄 판 2~5 — 순서 · 단계 | `items[{title, body}]` `numbered` `body_col` |
+| `plist` | 판 없는 목록 — 줄 사이는 여백으로만 | `items[{title, body}]` `numbered` |
+| `ppanel` | 결론 한 줄 + 한 줄 설명 + 옅은 판 하나 — 풀이 · 관계식 | `conclusion`(`[ ]` 안만 강조색) `conclusion_sub` `items[{label, title, body}]` `body_col` |
+| `pgrid` | 2 × 2 판, 머리는 왼쪽 | 항목 넷 · `pad_x` `pad_y` `body_leading` |
+| `pcol` | 판 없는 단(컬럼 그리드) | `items[{title, body(목록)}]` `numbered` |
+| `pfig` | 풀이 그림 + 결론 + 판 없는 목록, `fig_side: below` 면 그림이 아래 | `image` `fig_span` `conclusion` `items` `numbered` `body_style` |
+| `orig` | 원본 문항지 조각 한 장 | `image` `scale` — `sheet.orig_slides()` 가 써 준다 |
+| `ask` | 질문 장 — 판 없이 세로 정중앙 | `source`(「질문 N · 출처」) `text`(문장마다 `\n`) |
+| `ctimeline` | 일정 — 본문 영역 세로 가운데 | `nodes[{when, title, body}]` `live_from` `footnote` |
+| `rows` · `columns` | (house_ext) 옛 00 덱의 줄 · 칸 | `items` `emphasis` `stack` |
+| `pside` | **쓰지 않는다**(2026-10-25 사용자 — 짙은 옆 판에 눈길이 쏠리고 강조가 싸 보인다) | — |
+
+모든 레이아웃에 `subtitle`(제목 아래 회색 한 줄) · `band` / `band_top` / `foot`(결론 띠, 진초록 면 + 흰 글씨). 엔진의 `cover` · `section`(`part`) ·
+`table`(tint) · `closing` 을 함께 쓴다. 이웃한 내용 장끼리 같은 짜임을 피한다(같은 `pfig` 라도 그림 옆 / 아래로 바꾼다).
+
+### 시험 대비 덱의 뼈대 — 모의 면접 열 덱에서 굳은 순서
+1. `cover` — 노트에 문항 출처 · 문항 순서 · 진행 순서(문항 45분 → 스스로 매기기와 풀이 30분)
+2. 여는 장(시리즈 앞쪽 덱에만): 진행 방식(`pcards`) · 막혔을 때(`prows`)
+3. 문항마다 `section`(part 「문항 N」, subtitle 「준비 10분 · 답변 5분」) + `orig` 조각 — 노트에 그 문항에서 볼 것
+4. `section` 「스스로 매기기」 + 자기 평가표(`table`, 다섯 줄: 되짚기 · 개념 이름 · 식 · 값 · 단위 · 아는 데까지 · **5분 안에 물음이 요구한 것을 빠짐없이 답했다**)
+5. `section` 「문항별 풀이」 + 소문항마다 한두 장(`pfig` · `table` · `ppanel` · `pcards` · `pgrid` 를 돌려 가며). 노트는
+   「모범 답안 — 「…」」 · 「확인 — 검산 스크립트」 · 「들을 것」 · 「꼬리」 · 「자주 하는 실수」
+6. `closing`(label 「다음 일정」 · 시험 날짜 · 발표 날짜)
+
+- 기출은 원본 순서 · 소문항 그대로 쓴다. 빼거나 순서를 바꾸려면 먼저 묻는다. 문항 소재를 학생 서류 · 진로에 맞추지 않는다(면접은 면담과 별개)
+- 문항지(A4 PDF)는 `sheet.sheet_pdf` — 쪽 위 「모의 면접 N회 · 학업역량 문항 k」, 문항마다 새 쪽, 이어지면 「※ 뒷장에 계속」, 쪽 아래 출처
+  「(문구는 원본 그대로, 서식만 바꿈)」. 덱 조각은 같은 HTML 로 `sheet.pieces` → `sheet.orig_slides`(한 문항은 한 배율, 상한 인쇄 크기의 1.5배)
+- 원본 PDF 의 그림이 **이미지 객체**로 들어 있으면 `pymupdf` 의 `extract_image(xref)` 로 그대로 꺼낸다 — 쪽을 렌더해 자르면 학교 문양 층이 섞인다
+  (2026-11-18). 흐린 잡티(회색 205 이상)만 흰색으로. 문양이 그림에 박힌 스캔은 위 「바탕 문양이 복잡해 「깔끔하게」를 원할 때」처럼 쪽별 최댓값으로 나눈다
+- 문항마다 검산 스크립트를 둔다 — 경우의 수 · 확률은 전수(주사위 눈 6ⁿ, 카드 배열 19,448가지), 도형은 좌표로 0.0001 간격 훑기. 풀이 그림 좌표는 같은 계산에서
+
+### 풀이 그림에서 틀렸던 것 (2026-11-18 사용자 지적)
+- 겹쳐 보이는 방향(투영)에서 그린 그림에는 **실제 길이 라벨을 붙이지 않는다**. 정면도에서 두 점이 겹쳐 「CG = 1」처럼 읽혔다(실제 √(1 + (1 − x)²)).
+  그림 위에 「○○ 방향에서 본 모습 — G, O₂ 는 O₁ 뒤에 겹친다」처럼 무엇이 겹치는지 쓰고, 길이는 실제로 그 길이인 선분에만
+- 회로 그림은 그린 뒤 연결을 따로 따라가 본다 — 병렬 가지를 아래 선끼리 이어 단락된 그림을 냈다. 갈림점에 점을 찍고 그림 아래에 연결 방식
+  (「직렬 — 스위치는 각 전구와 병렬」)을 쓴다
+- 화면 글에 Pretendard 에 없는 기호를 쓰지 않는다: ∠ ∥ ∽ ㉠ ㉡ ㉮ → 「각 A」 「평행」 「닮음」 「1-1」. 문항지 HTML 은 Apple SD Gothic Neo 로 넘어가 보인다
+
+### 마지막 정리 덱 — 사용자가 직접 고친 것 (2026-11-18)
+- 장을 더 줄였다 — 「준비 시간 쓰는 법」 장을 지웠다. 남은 것: 면접 형식 · 답변 순서 · 요구한 것을 빠짐없이 · 막혔을 때 · 「정말 그럴까요?」 · 말하는 법 · 당일 · 전날과 아침
+- 표지 메타는 한 줄, 제목은 사용자 말투 그대로(「진짜 마지막 정리」). 「컨디션 관리 필수!」 같은 사용자의 느낌표 · 말투는 윤문하지 않는다
+- 답변 순서는 **답부터 → 묻는 것은 전부 → 개념 이름 → 근거 → 한마디 더**(「되짚기」를 맨 앞에 두던 것을 사용자가 바꿈 — 요구한 것을 다 말하지 않는 것이 끝까지 남은 약점)
+- 사용자가 배포본을 고친 뒤 받은 추가 지시는 **다시 빌드하지 않고 배포본 위에서** 고친다(python-pptx 로 첫 런 서식을 살려 글만 바꿈). 고친 원본은 백업하고
+  아웃라인도 같게 맞추되, PowerPoint 에서 옮긴 자리(표지 글 위치)는 아웃라인으로 되살아나지 않으니 다음 빌드 전에 배포본과 대조한다
+
+### 검수 · 배포 (house 판 카드 덱)
+- `lint.py`(RHYTHM 「statement 없음」 하나는 시리즈 공통 — 남기고 보고) · `lint_deck --allow-kind icon` · `validate` · `lint_pptx_text` · `svgpreview --png`
+- 화면 글 윤문은 humanize-korean light + 구조 계약(줄 = 화면 한 칸, 줄 수 · 명사구 끝 · 수식 · 기호 · 문제 용어 그대로). 시리즈 공통 문구(자기 평가표 줄)는 한 덱만 바꾸지 않는다
+- 키노트 PDF 는 한 번에(백그라운드 `open -ga Keynote` + AppleScript `export … as PDF`) → `audit_render.py --pdf` 상자 어긋남 0.
+  **수업 중에 받은 요청이면 키노트 재내보내기를 미룬다** — 창이 떠서 화면 공유 · 녹화 중인 수업을 방해한다
+- `audit_render` 는 잉크로 잰다 — 카드 맨 아래 줄에 괄호 · g · y 같은 내림 글자가 있으면 아래 여백이 0.03" 넘게 좁게 나온다(상자 배치는 같음).
+  내림 없는 줄을 맨 아래로 두거나, 남기면 이유를 보고한다
+- 배포는 덮어쓰기 직전마다 사용자 수정 대조(아래 0원칙). 문서 속성: python-pptx 기본 틀의 작성자 「Steve Canny」 · 2013년 날짜가 열세 덱에 남아 있었다 —
+  2026-11-23 부터 엔진이 제목(meta.title)과 날짜를 넣고 작성자는 meta.author 를 적었을 때만 넣는다
+- `svgpreview` 는 이번 덱에 없는 번호의 옛 slide-NN 그림을 지운다 — 같은 out/ 에 41장 덱의 13~41번이 남아 12장 덱 것처럼 보였다
+
+### 면접 시리즈 사용자 취향 — 위에 없던 것 (2026-10-18 ~ 10-30)
+- 줄을 잘게 끊지 않는다 — 「두 서류의 문장이 / 그대로 질문」보다 「두 서류의 내용과 관련된 질문」 한 줄. 가운데서 반반 가르는 균형 줄바꿈(「문제 / 해결력」)도 싫어한다
+- 계단(`stair`)은 「구림」 — 줄 판으로. house 에서 `tone: caution` 분홍 바탕은 「채도 너무 높다」 — 쓰지 않는다
+- 사용자가 고친 문구는 그대로 쓴다(「마지막 수업 : 11월 1일」 쌍점 라벨, 「20분 / 3세트」)
+- 개요 덱에는 서류의 구체적 질문을 넣지 않는다 — 갈래만 되짚고 구체적 질문은 모의 면담에서
+- 모의 면담 세트 하나 = 실제 면담 한 번(자기소개 → 지원 동기 · 서류 · 인성 → 마지막 말), 20분 × 3세트. 질문은 그동안 쓴 질문과 문장이 겹치지 않게
+  (3글자 묶음 유사도 0.3 이하) — 같은 소재는 각도를 바꾸고(다시 한다면 · 하나만 고른다면 · 비교 · 뒤집기) 노트에 「그동안은 …로 물었다」
 
 ## Phase 4. 린트 → 빌드 → 검수 → 검증
 

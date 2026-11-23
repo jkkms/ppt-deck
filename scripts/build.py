@@ -1766,6 +1766,21 @@ def _ghost_out(d, s, i, ghost):
                      if not (b["slide"] == i and hit(norm("".join(b["text"]) if isinstance(b["text"], list) else b["text"])))]
 
 
+def _core_props(prs, m):
+    """문서 속성. python-pptx 기본 틀은 작성자 · 마지막 수정자가 「Steve Canny」, 날짜가 2013-01-27 로 남는다
+    (2026-11-23 면접 시리즈 덱 열세 개에서 발견 — 파일 정보에 남의 이름이 찍혔다). 제목은 meta.title,
+    작성자는 meta.author 를 적었을 때만 넣고 없으면 비운다(이름을 지어 넣지 않는다)."""
+    import datetime as _dt
+    cp = prs.core_properties
+    now = _dt.datetime.now().replace(microsecond=0)
+    cp.title = str(m.get("title") or "")
+    cp.author = str(m.get("author") or "")
+    cp.last_modified_by = str(m.get("author") or "")
+    cp.created = now
+    cp.modified = now
+    cp.revision = 1
+
+
 def build(outline_path, out_path=None, spec_path=None, embed=False):
     o = yaml.safe_load(open(outline_path, encoding="utf-8"))
     o["slides"] = _expand_reveal(o.get("slides") or [])
@@ -1781,6 +1796,8 @@ def build(outline_path, out_path=None, spec_path=None, embed=False):
     for sl in (o.get("slides") or []):
         if sl.get("image"):
             sl["image"] = _abs(sl["image"])
+        if sl.get("signature"):                  # 표지 서명(house_ext) — 아웃라인 폴더 기준
+            sl["signature"] = _abs(sl["signature"])
         for it in (sl.get("items") or []):
             if it.get("image"):
                 it["image"] = _abs(it["image"])
@@ -1832,6 +1849,7 @@ def build(outline_path, out_path=None, spec_path=None, embed=False):
             prev_mode = None
 
     out = out_path or m.get("output") or "out/deck.pptx"
+    _core_props(d.prs, m)
     pptx, man = d.save(out, embed=embed or bool(m.get("embed_fonts")))
     if m.get("cells") and d.cell_pages:
         # 칸 번호 → 쪽. notebook.py 가 읽어 노트북 칸 제목에 「PPT n쪽」을 넣는다
