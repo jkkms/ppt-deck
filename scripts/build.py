@@ -1779,6 +1779,7 @@ def _core_props(prs, m):
     cp.created = now
     cp.modified = now
     cp.revision = 1
+    cp.comments = ""            # 기본 틀의 설명 「generated using python-pptx」
 
 
 def build(outline_path, out_path=None, spec_path=None, embed=False):

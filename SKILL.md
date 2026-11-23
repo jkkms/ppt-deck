@@ -840,7 +840,7 @@ $PY ${CLAUDE_SKILL_DIR}/scripts/house_panels.py outline.yaml -o out/deck.pptx
 - `audit_render` 는 잉크로 잰다 — 카드 맨 아래 줄에 괄호 · g · y 같은 내림 글자가 있으면 아래 여백이 0.03" 넘게 좁게 나온다(상자 배치는 같음).
   내림 없는 줄을 맨 아래로 두거나, 남기면 이유를 보고한다
 - 배포는 덮어쓰기 직전마다 사용자 수정 대조(아래 0원칙). 문서 속성: python-pptx 기본 틀의 작성자 「Steve Canny」 · 2013년 날짜가 열세 덱에 남아 있었다 —
-  2026-11-23 부터 엔진이 제목(meta.title)과 날짜를 넣고 작성자는 meta.author 를 적었을 때만 넣는다
+  2026-11-23 부터 엔진이 제목(meta.title)과 날짜를 넣고 작성자는 meta.author 를 적었을 때만 넣는다(설명 칸 「generated using python-pptx」도 비움). 이미 배포한 덱은 zip 안 docProps/core.xml 만 바꿔 다시 배포했다 — 다른 부분은 바이트 그대로라 사용자가 고친 배포본에도 안전하다
 - `svgpreview` 는 이번 덱에 없는 번호의 옛 slide-NN 그림을 지운다 — 같은 out/ 에 41장 덱의 13~41번이 남아 12장 덱 것처럼 보였다
 
 ### 면접 시리즈 사용자 취향 — 위에 없던 것 (2026-10-18 ~ 10-30)
