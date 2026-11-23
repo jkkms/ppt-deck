@@ -154,7 +154,8 @@ def cover(d, s, m, sl):
     corner = CV.get("meta_corner")
     title = _t(sl, "title") or m.get("title", "")
     th = g.bh(title, span_w(9), "cover")
-    total = th + (g.gap + mh if mh and not corner else 0)
+    mgap = CV.get("meta_gap", g.gap)      # house: 사용자가 제목과 메타 사이를 24 → 15.6pt 로 좁힘(2026-11-18)
+    total = th + (mgap + mh if mh and not corner else 0)
     if CV.get("title_box"):
         # 사용자가 직접 옮긴 표지(2026-10-27 두 번째 수정): 상자 좌표를 그대로 쓴다 — 제목 상자 189pt 는 세 줄까지 담고 중간 정렬이라
         # 한두 줄 제목도 같은 자리 가운데에 선다. 이름은 제목 상자 바로 밑, 논문 출처(corner)는 오른쪽 아래
@@ -172,9 +173,10 @@ def cover(d, s, m, sl):
     if CV.get("title_center") == "canvas":
         y_title = (d.spec["canvas"]["height_pt"] - th) / 2
     else:
-        y_title = resolve_y(total, d.spec, top=g.top)
-    y_meta = y_title + th + g.gap
-    d.text(s, "cover", TX, y_title, span_w(9), th, title.split("\n"), tag="title")
+        # house: 사용자가 표지 덩어리를 올렸다(2026-11-18 마지막 정리 덱, 제목 위 243.6pt) — lift 만큼 위로
+        y_title = resolve_y(total, d.spec, top=g.top) - CV.get("lift", 0)
+    y_meta = y_title + th + mgap
+    d.text(s, "cover", TX, y_title, span_w(9), th, title.split("\n"), anchor=CV.get("title_anchor", "top"), tag="title")
     if sl.get("eyebrow") and CV.get("eyebrow_below"):
         d.text(s, "micro", TX, y_title + th + float(CV["eyebrow_below"]), span_w(8), 15,
                sl["eyebrow"], color=_label_color(d), tag="cover-eyebrow")
@@ -256,7 +258,7 @@ def _closing_qa(d, s, g, sl):
         tc = max(("ground", "figure"), key=lambda k: contrast(d.c(k), d.c("highlight")))
         d.chip(s, title_x(), top, pw, ph, label, color="highlight", text_color=tc,
                style="small", radius=SH["chip_radius"])
-    d.text(s, "cover", title_x(), top + ph + gap, tw, th, title, tag="title")
+    d.text(s, "cover", title_x(), top + ph + gap, tw, th, title, anchor=CL.get("title_anchor", "top"), tag="title")
     # 맺음말 한 줄은 본문 바닥선에 — 덩어리에 붙이지 않는다
     if sl.get("line"):
         lh = g.bh(sl["line"], span_w(8), "body")

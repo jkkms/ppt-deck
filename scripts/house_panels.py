@@ -84,8 +84,8 @@ def _wrap(d, text, w, style):
     out = []
     for p_ in paras:
         p_ = str(p_)
-        if "[" in p_ and "]" in p_:                      # 강조 표시가 있는 줄 — 한 줄에 들어가면 그대로(대괄호는 폭에 안 셈)
-            plain = re.sub(r"[\[\]]", "", p_)
+        if ("[" in p_ and "]" in p_) or "**" in p_:    # 강조 표시([강조색] · **굵게**)가 있는 줄 — 한 줄에 들어가면 그대로(표시는 폭에 안 셈)
+            plain = re.sub(r"\*\*|[\[\]]", "", p_)
             if len(wrap_lines(plain, w, st, font)) == 1:
                 out.append(p_)
                 continue
@@ -208,14 +208,16 @@ def block(d, s, x, y, w, h, groups, *, anchor="middle", tag="card"):
             p.line_spacing = 1.0
             if not first:
                 p.space_before = Pt(g_.get("before", 0) if li == 0 else _gap(d, style, g_.get("leading")))
-            segs = re.split(r"(\[[^\]]+\])", ln) if ("[" in ln and "]" in ln) else [ln]
+            # [강조색] · **굵게**(2026-11-18 사용자가 마지막 정리 덱 「입실 시간보다 30분 일찍 도착」의 「30분」을 직접 굵게 함)
+            segs = re.split(r"(\[[^\]]+\]|\*\*[^*]+\*\*)", ln) if (("[" in ln and "]" in ln) or "**" in ln) else [ln]
             for sg in segs:
                 if not sg:
                     continue
                 r = p.add_run()
                 lit = sg.startswith("[") and sg.endswith("]")
-                r.text = sg[1:-1] if lit else sg
-                _apply_font(r, font, st["size"], d.c("accent") if lit else col, tracking=st.get("tracking", 0))
+                bold = len(sg) > 4 and sg.startswith("**") and sg.endswith("**")
+                r.text = sg[1:-1] if lit else sg[2:-2] if bold else sg
+                _apply_font(r, font, st["size"], d.c("accent") if lit else col, bold=bold, tracking=st.get("tracking", 0))
             _end_para(p, font, st["size"], col)
             first = False
         pitch = _pitch(d, style, g_.get("leading"))
@@ -225,7 +227,7 @@ def block(d, s, x, y, w, h, groups, *, anchor="middle", tag="card"):
                                size=st["size"], leading=pitch / st["size"], space_after=0, extra_pt=0.0,
                                exact_center=False, font=font, tracking=st.get("tracking", 0), color=col,
                                align="left", anchor="top", suffix=None, suffix_style=None, suffix_color=col,
-                               text=[re.sub(r"[\[\]]", "", x) for x in lines]))
+                               text=[re.sub(r"\*\*|[\[\]]", "", x) for x in lines]))
     return box
 
 

@@ -225,8 +225,10 @@ def main(path, spec_path=None):
     # 영어 낱말(over, times, rm 명령)과 헷갈리지 않게 수식 문법의 꼴로만 잡는다
     MARKUP = re.compile(r"`|⟦|⟧|\}\s*over\s*\{|\bsqrt\s*\{|\brm\s*\{|\b(?:LEQ|GEQ|rightarrow)\b|"
                         r"\\(?:frac|sqrt|times|cdot|left|right|mathrm|alpha|beta|theta|pi)\b|[_^]\{|\*\*")
+    PANEL = {"pcards", "prows", "plist", "ppanel", "pgrid", "pcol", "pfig"}    # house_panels 는 화면 글의 **굵게** 를 굵은 글자로 바꾼다
     for i, sl in enumerate(slides, 1):
-        for tx in texts_of(sl) + ([str(sl["notes"])] if sl.get("notes") else []):
+        scr = [re.sub(r"\*\*[^*]+\*\*", "", t) if sl.get("layout") in PANEL else t for t in texts_of(sl)]
+        for tx in scr + ([str(sl["notes"])] if sl.get("notes") else []):
             m_ = MARKUP.search(tx)
             if m_:
                 wrn(i, "MARKUP", f"마크업 잔재 {m_.group(0)!r} — 변환이 덜 됐다: "

@@ -240,3 +240,11 @@ rhythm:
 closing:
   lift: 23.025        # 세로 가운데보다 이만큼 위
   label_gap: 16.05    # 알약 아래 → 제목(shapes.qa_label_gap 20 대신)
+  title_anchor: middle   # 사용자 파일의 마지막 장 제목 상자도 세로 가운데
+
+# 표지 — 사용자가 제목 · 메타 덩어리를 올리고 사이를 좁혔다(2026-11-18 마지막 정리 덱, PowerPoint 실측: 제목 위 243.55pt · 메타 위 312.13pt,
+# 메타 한 줄일 때). 제목 상자는 세로 가운데(사용자 파일 그대로 — talk 표지와 같은 취향)
+cover:
+  lift: 19.65         # 세로 자리(resolve_y)보다 이만큼 위
+  meta_gap: 15.68
+  title_anchor: middle
